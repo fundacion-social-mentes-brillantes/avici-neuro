@@ -430,22 +430,31 @@ function renderFlash(cards) {
   };
   draw();
 }
+async function apiResearch(payload) {
+  const tk = await idToken();
+  const r = await fetch("/api/research", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + tk }, body: JSON.stringify(payload) });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || ("Error " + r.status));
+  return data;
+}
 async function renderContrast() {
   const body = $("lessonBody"); const l = curLesson.l; const cid = lessonId(curLesson.ui, curLesson.li);
-  body.innerHTML = `<div class="spinner"></div><p style="text-align:center;color:#8a9aa4">Investigando qué dice el mundo hoy… 🌐</p>`;
+  body.innerHTML = `<div class="spinner"></div><p style="text-align:center;color:#8a9aa4">Investigando en internet qué dice el mundo hoy… 🌐🔎</p>`;
   try {
-    let txt = null;
+    let txt = null, sources = [];
     const snap = await getDoc(doc(db, "books", book.id, "contrast", cid));
-    if (snap.exists()) txt = snap.data().text;
+    if (snap.exists()) { txt = snap.data().text; sources = snap.data().sources || []; }
     if (!txt) {
       const passages = passagesForRange(l.pageStart, l.pageEnd, l.title);
-      const data = await apiChat({ task: "contrast", bookTitle: book.title, passages, mode: "pro", meta: { title: l.title } });
-      txt = data.answer;
-      try { await setDoc(doc(db, "books", book.id, "contrast", cid), { text: txt, createdAt: serverTimestamp() }); } catch {}
+      const data = await apiResearch({ topic: l.title, bookTitle: book.title, passages });
+      txt = data.answer; sources = data.sources || [];
+      try { await setDoc(doc(db, "books", book.id, "contrast", cid), { text: txt, sources, createdAt: serverTimestamp() }); } catch {}
     }
-    body.innerHTML = `<div class="lesson-content contrast">${md(txt)}</div><p class="disclaimer">🌐 Sección de contraste: combina el libro con conocimiento general actualizado. Ante dudas clínicas, verificá con fuentes oficiales.</p>`;
+    const srcHtml = sources.length ? `<div class="sources"><b>🔗 Fuentes consultadas (en vivo):</b>${sources.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)} (${esc(s.lang || "")})</a>`).join("")}</div>` : "";
+    body.innerHTML = `<div class="lesson-content contrast">${md(txt)}</div>${srcHtml}<p class="disclaimer">🌐 Investigación en vivo (Wikipedia ES/EN) contrastada con el libro por IA. Ante dudas clínicas, verificá siempre con fuentes oficiales.</p><div style="margin-top:10px"><button class="btn btn-ghost btn-sm" id="reContrast">🔄 Investigar de nuevo</button></div>`;
     wireCites(body);
-  } catch (e) { body.innerHTML = `<div class="empty">No se pudo generar el contraste: ${esc(e.message)}</div>`; }
+    $("reContrast").onclick = async () => { try { await deleteDoc(doc(db, "books", book.id, "contrast", cid)); } catch {} renderContrast(); };
+  } catch (e) { body.innerHTML = `<div class="empty">No se pudo investigar: ${esc(e.message)}</div>`; }
 }
 
 /* progreso */
@@ -539,3 +548,4 @@ document.addEventListener("click", (e) => { const b = e.target.closest("#lessonS
 // helpers de diagnóstico (uso interno para verificar la conexión con DeepSeek)
 window.__api = apiChat;
 window.__models = async () => { const tk = await idToken(); const r = await fetch("/api/models", { headers: { Authorization: "Bearer " + tk } }); return { status: r.status, body: await r.json().catch(() => ({})) }; };
+window.__research = apiResearch;
