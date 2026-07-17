@@ -535,3 +535,7 @@ function setupSelection() {
 }
 // tabs de secciones de lección (delegación)
 document.addEventListener("click", (e) => { const b = e.target.closest("#lessonSecTabs button"); if (b) renderLessonSection(b.dataset.sec); });
+
+// helpers de diagnóstico (uso interno para verificar la conexión con DeepSeek)
+window.__api = apiChat;
+window.__models = async () => { const tk = await idToken(); const r = await fetch("/api/models", { headers: { Authorization: "Bearer " + tk } }); return { status: r.status, body: await r.json().catch(() => ({})) }; };
