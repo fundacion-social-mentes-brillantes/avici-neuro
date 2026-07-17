@@ -177,9 +177,57 @@
   .dots::after{content:'';animation:dots 1.4s steps(4,end) infinite}
   @keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
 
-  @media(min-width:860px){
-    .studysplit .panel-lector-chat{display:grid;grid-template-columns:1fr 1fr;gap:0}
-  }
+  /* ===== CURSO ===== */
+  .courseHead{margin-bottom:16px}
+  .courseHead h2{font-size:1.3rem}
+  .progbar{height:10px;background:#e6f3ef;border-radius:999px;overflow:hidden;margin:8px 0 4px}
+  .progbar>div{height:100%;background:linear-gradient(90deg,var(--mint),var(--mint-dark));transition:width .4s}
+  .progtxt{font-size:.8rem;color:#5c7480}
+  .unit{margin-bottom:14px;background:#f7fbfc;border:1px solid #e2eef1;border-radius:14px;overflow:hidden}
+  .unit-h{padding:12px 14px;font-size:1.02rem;background:#eef7f5;color:var(--mint-dark)}
+  .lessons{display:grid;gap:1px;background:#eef3f4}
+  .lesson-item{display:flex;gap:12px;align-items:center;background:#fff;padding:12px 14px;cursor:pointer;transition:background .12s}
+  .lesson-item:hover{background:#f2fffb}
+  .lesson-item .chk{font-size:1.2rem;flex:0 0 auto}
+  .lesson-item .li-txt{min-width:0}
+  .lesson-item .li-txt b{display:block;font-size:.95rem}
+  .lesson-item .li-txt span{font-size:.82rem;color:#8a9aa4}
+  .coursegen{text-align:center;padding:30px 16px}
+  .coursegen .em{font-size:3rem;margin-bottom:8px}
+  .coursegen h3{margin-bottom:6px}
+  .coursegen p{color:#5c7480;font-size:.92rem;margin:0 auto 16px;max-width:460px}
+  .genlog{font-size:.85rem;color:var(--mint-dark);margin-top:12px;min-height:20px}
+  .lessobj{color:#5c7480;font-size:.92rem;margin-bottom:12px}
+  .sectabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid #eef3f4;padding-bottom:10px}
+  .sectabs button{border:none;background:#eef4f6;color:#3a5a6b;font-weight:700;padding:8px 12px;border-radius:10px;cursor:pointer;font-size:.85rem}
+  .sectabs button.active{background:var(--mint);color:#fff}
+  .lesson-content{line-height:1.65;font-size:1rem;color:#243b47}
+  .lesson-content h4{margin:14px 0 6px;color:var(--mint-dark)}
+  .sech{margin:18px 0 8px;color:var(--mint-dark)}
+  .terms{display:grid;gap:8px}
+  .term{background:#f7fbfc;border:1px solid #e2eef1;border-radius:10px;padding:10px 12px;font-size:.9rem}
+  .term b{color:var(--mint-dark)}
+  .lessfoot{margin-top:18px;display:flex;gap:8px;flex-wrap:wrap}
+  .quizq{background:#f7fbfc;border:1px solid #e2eef1;border-radius:12px;padding:14px;margin-bottom:12px}
+  .quizq .qq{font-size:.98rem;margin-bottom:10px}
+  .opts{display:grid;gap:8px}
+  .opt{text-align:left;border:1px solid #cdeee6;background:#fff;padding:11px 14px;border-radius:10px;cursor:pointer;font-size:.92rem}
+  .opt:hover{border-color:var(--mint)}
+  .opt.ok{background:#e4fff5;border-color:var(--ok);font-weight:700}
+  .opt.bad{background:#ffeaec;border-color:var(--bad)}
+  .qexp{margin-top:10px;font-size:.88rem;color:#3a5a6b;background:#fffef7;border:1px solid #ffe9a8;border-radius:8px;padding:10px}
+  .quizres{text-align:center;margin-top:16px;background:#e4fff5;border:1px solid #b6ecd8;border-radius:14px;padding:18px}
+  .quizacts{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+  .flashwrap{text-align:center;padding:10px}
+  .flashcard{perspective:1000px;max-width:420px;height:220px;margin:0 auto;cursor:pointer}
+  .fc-inner{position:relative;width:100%;height:100%;transition:transform .5s;transform-style:preserve-3d}
+  .flashcard.flipped .fc-inner{transform:rotateY(180deg)}
+  .fc-front,.fc-back{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:16px;display:grid;place-items:center;padding:20px;font-size:1.05rem;box-shadow:0 8px 24px rgba(13,43,62,.15)}
+  .fc-front{background:linear-gradient(135deg,var(--mint),var(--mint-dark));color:#fff;font-weight:700}
+  .fc-back{background:#fffef7;border:1px solid #ffe9a8;color:#243b47;transform:rotateY(180deg)}
+  .flashnav{display:flex;gap:14px;align-items:center;justify-content:center;margin-top:14px}
+  .fchint{font-size:.8rem;color:#9fb0b8;margin-top:8px}
+  .disclaimer{font-size:.8rem;color:#9fb0b8;margin-top:14px;border-top:1px solid #eef3f4;padding-top:10px}
 </style>
 </head>
 <body>
@@ -252,16 +300,35 @@
     <div class="studybar">
       <select id="bookSel"></select>
       <div class="tabs">
-        <button data-tab="lector" class="active">📖 Lector</button>
-        <button data-tab="chat">🤖 Asistente</button>
+        <button data-tab="curso" class="active">🎓 Curso</button>
+        <button data-tab="libro">📖 Libro</button>
+        <button data-tab="chat">🤖 Profe</button>
         <button data-tab="notas">✍️ Notas</button>
       </div>
       <button class="btn btn-ghost btn-sm" id="btnLogoutS">Salir</button>
     </div>
     <div class="studywrap">
-      <div id="bookLoading" class="hidden"><div class="spinner"></div><p id="bookLoadingTxt">Cargando libro…</p></div>
+      <div id="bookLoading" class="hidden"><div class="spinner"></div><p id="bookLoadingTxt">Cargando…</p></div>
 
-      <div class="panel active" id="panel-lector">
+      <!-- CURSO -->
+      <div class="panel active" id="panel-curso">
+        <div id="courseHome"></div>
+        <div id="lessonView" class="hidden">
+          <button class="btn btn-ghost btn-sm" id="btnBackMap" style="margin-bottom:10px">← Volver al mapa</button>
+          <h2 id="lessonTitle"></h2>
+          <p id="lessonObjective" class="lessobj"></p>
+          <div id="lessonSecTabs" class="sectabs">
+            <button data-sec="leccion" class="active">📘 Lección</button>
+            <button data-sec="quiz">🎮 Quiz</button>
+            <button data-sec="flash">🃏 Flashcards</button>
+            <button data-sec="mundo">🌐 Mundo hoy</button>
+          </div>
+          <div id="lessonBody"></div>
+        </div>
+      </div>
+
+      <!-- LIBRO (consulta) -->
+      <div class="panel" id="panel-libro">
         <div class="readerctrls">
           <button id="pgPrev" title="Anterior">◀</button>
           <div class="pg">pág. <input id="pgInput" type="number" min="1"> / <span id="pgTotal">—</span></div>
@@ -269,22 +336,20 @@
           <div class="searchbox"><input id="searchInput" placeholder="Buscar en el libro…"><button id="searchBtn" class="mini">🔍</button></div>
         </div>
         <div id="searchResults" class="hidden"></div>
-        <div class="pagecontent" id="pageContent">Elegí un libro para empezar a leer. 📖</div>
+        <div class="pagecontent" id="pageContent">Elegí un libro para consultarlo. 📖</div>
       </div>
 
+      <!-- PROFE (chat guía) -->
       <div class="panel" id="panel-chat">
-        <div class="modeswitch">
-          Modo del bot:
-          <label><input type="radio" name="mode" value="pro" checked> 🧠 Pro (profundo)</label>
-          <label><input type="radio" name="mode" value="flash"> ⚡ Flash (rápido)</label>
-        </div>
+        <div class="modeswitch">Modo: <label><input type="radio" name="mode" value="pro" checked> 🧠 Pro</label> <label><input type="radio" name="mode" value="flash"> ⚡ Flash</label></div>
         <div class="chatmsgs" id="chatMsgs"></div>
         <div class="chatinput">
-          <textarea id="chatInput" placeholder="Preguntá lo que sea sobre el libro… (cita la página 📄)"></textarea>
+          <textarea id="chatInput" placeholder="Preguntale al profe sobre el libro… 📄"></textarea>
           <button class="btn btn-mint" id="chatSend" style="width:auto">Enviar</button>
         </div>
       </div>
 
+      <!-- NOTAS -->
       <div class="panel" id="panel-notas">
         <div class="noteadd">
           <textarea id="noteInput" placeholder="Escribí una nota…"></textarea>

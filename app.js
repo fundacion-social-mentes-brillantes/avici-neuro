@@ -1,4 +1,4 @@
-// ===== AVICI — app principal (auth + admin + zona de estudio) =====
+// ===== AVICI — Curso interactivo por libro (auth + admin + curso + libro + bot + notas) =====
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
 import {
   getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
@@ -6,7 +6,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, addDoc,
-  query, where, orderBy, onSnapshot, getDocs, serverTimestamp, writeBatch
+  query, orderBy, where, onSnapshot, getDocs, serverTimestamp, writeBatch
 } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -33,24 +33,42 @@ const $ = (id) => document.getElementById(id);
 const show = (el, on = true) => { const e = typeof el === "string" ? $(el) : el; if (e) e.classList.toggle("hidden", !on); };
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const toast = (m) => window._toast ? window._toast(m) : console.log(m);
+let isAdmin = false, curUser = null;
+
+async function idToken() { return auth.currentUser ? await auth.currentUser.getIdToken() : null; }
+async function apiChat(payload) {
+  const tk = await idToken();
+  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + tk }, body: JSON.stringify(payload) });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || ("Error " + r.status));
+  return data;
+}
+
+/* ---------- markdown-lite + citas ---------- */
+function md(text) {
+  let h = esc(text);
+  h = h.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>");
+  h = h.replace(/^\s*###?\s*(.+)$/gm, "<h4>$1</h4>");
+  h = h.replace(/\(p[aá]g\.?\s*(\d{1,4})[^)]*\)/gi, (m, n) => `<button class="cite" data-pg="${n}">📄 pág. ${n}</button>`);
+  h = h.replace(/^\s*[-*]\s+(.+)$/gm, "• $1");
+  h = h.replace(/\n/g, "<br>");
+  return h;
+}
+function wireCites(el) { el.querySelectorAll(".cite").forEach(b => b.onclick = () => goToPage(parseInt(b.dataset.pg))); }
 
 /* ---------------- AUTH ---------------- */
-let unsubUserDoc = null, unsubPending = null, unsubApproved = null, unsubNotes = null;
-function cleanup() { [unsubUserDoc, unsubPending, unsubApproved, unsubNotes].forEach(f => { try { f && f(); } catch {} }); unsubUserDoc = unsubPending = unsubApproved = unsubNotes = null; }
-
+let unsubUserDoc = null, unsubPending = null, unsubApproved = null, unsubNotes = null, unsubProgress = null;
+function cleanup() { [unsubUserDoc, unsubPending, unsubApproved, unsubNotes, unsubProgress].forEach(f => { try { f && f(); } catch {} }); unsubUserDoc = unsubPending = unsubApproved = unsubNotes = unsubProgress = null; }
 function whoami(user, role) {
   const img = user.photoURL ? `<img src="${esc(user.photoURL)}" referrerpolicy="no-referrer" alt="">` : `<img src="/icon-192.png" alt="">`;
   return `<div class="whoami">${img}<div class="info"><b>${esc(user.displayName || "Sin nombre")}</b><span>${esc(user.email || "")}</span></div><span class="role">${role}</span></div>`;
 }
-
 $("btnLogin").addEventListener("click", async () => {
   try { await signInWithPopup(auth, provider); }
-  catch (e) {
-    const c = e.code || "";
-    if (/popup-blocked|cancelled-popup|operation-not-supported|popup-closed/.test(c)) {
-      try { await signInWithRedirect(auth, provider); } catch (e2) { toast("No se pudo abrir el login: " + (e2.message || e2)); }
-    } else if (/unauthorized-domain/.test(c)) { toast("Dominio no autorizado en Firebase."); }
-    else { toast("Error al entrar: " + (e.message || e)); }
+  catch (e) { const c = e.code || "";
+    if (/popup-blocked|cancelled-popup|operation-not-supported|popup-closed/.test(c)) { try { await signInWithRedirect(auth, provider); } catch (e2) { toast("No se pudo abrir el login: " + (e2.message || e2)); } }
+    else if (/unauthorized-domain/.test(c)) toast("Dominio no autorizado en Firebase.");
+    else toast("Error al entrar: " + (e.message || e));
   }
 });
 ["btnLogoutP", "btnLogoutR", "btnLogoutS"].forEach(id => $(id) && $(id).addEventListener("click", async () => { cleanup(); try { await signOut(auth); } catch {} }));
@@ -60,55 +78,44 @@ async function ensureUserDoc(user) {
   const ref = doc(db, "users", user.uid);
   const snap = await getDoc(ref);
   if (!snap.exists()) {
-    const isAdmin = (user.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase();
-    await setDoc(ref, {
-      email: user.email || "", displayName: user.displayName || "", photoURL: user.photoURL || "",
-      role: isAdmin ? "admin" : "student", status: isAdmin ? "approved" : "pending", createdAt: serverTimestamp()
-    });
+    const admin = (user.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    await setDoc(ref, { email: user.email || "", displayName: user.displayName || "", photoURL: user.photoURL || "", role: admin ? "admin" : "student", status: admin ? "approved" : "pending", createdAt: serverTimestamp() });
   }
   return ref;
 }
-
 const CARDS = ["monitorCard", "recetaCard"];
-function setLanding(on) { CARDS.forEach(id => show(id, on)); }
+const setLanding = (on) => CARDS.forEach(id => show(id, on));
 
 function renderByStatus(user, data) {
-  const isAdmin = data.role === "admin" || (user.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  isAdmin = data.role === "admin" || (user.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase();
   ["accessLoading", "viewLogin", "viewPending", "viewRejected"].forEach(v => show(v, false));
   if (isAdmin || data.status === "approved") {
-    show("accessCard", false); setLanding(false);
-    show("adminZone", isAdmin);
+    show("accessCard", false); setLanding(false); show("adminZone", isAdmin);
     if (isAdmin) { $("whoamiAdmin").innerHTML = whoami(user, "Admin"); startAdmin(); }
-    show("studyZone", true);
-    initStudy(user);
-    return;
+    show("studyZone", true); initStudy(user); return;
   }
   show("accessCard", true); setLanding(true); show("adminZone", false); show("studyZone", false);
   if (data.status === "rejected") { $("whoamiRejected").innerHTML = whoami(user, "Sin acceso"); show("viewRejected", true); }
   else { $("whoamiPending").innerHTML = whoami(user, "Pendiente"); show("viewPending", true); }
 }
-
 onAuthStateChanged(auth, async (user) => {
-  cleanup();
+  cleanup(); curUser = user;
   if (!user) { ["accessLoading", "viewPending", "viewRejected"].forEach(v => show(v, false)); show("accessCard", true); setLanding(true); show("adminZone", false); show("studyZone", false); show("viewLogin", true); return; }
   show("accessCard", true); ["viewLogin", "viewPending", "viewRejected"].forEach(v => show(v, false)); show("accessLoading", true); setLanding(false);
-  try {
-    const ref = await ensureUserDoc(user);
-    unsubUserDoc = onSnapshot(ref, (s) => { if (s.exists()) renderByStatus(user, s.data()); }, (err) => { toast("Error de acceso: " + err.message); show("viewLogin", true); });
-  } catch (e) { toast("Error de conexión: " + (e.message || e)); show("accessLoading", false); show("viewLogin", true); }
+  try { const ref = await ensureUserDoc(user); unsubUserDoc = onSnapshot(ref, s => { if (s.exists()) renderByStatus(user, s.data()); }, err => { toast("Error de acceso: " + err.message); show("viewLogin", true); }); }
+  catch (e) { toast("Error de conexión: " + (e.message || e)); show("accessLoading", false); show("viewLogin", true); }
 });
 
 /* ---------------- ADMIN ---------------- */
 function startAdmin() {
   if (unsubPending || unsubApproved) return;
   const col = collection(db, "users");
-  unsubPending = onSnapshot(query(col, where("status", "==", "pending")), (qs) => {
-    $("pendingCount").textContent = qs.size;
-    const list = $("pendingList");
+  unsubPending = onSnapshot(query(col, where("status", "==", "pending")), qs => {
+    $("pendingCount").textContent = qs.size; const list = $("pendingList");
     if (qs.empty) { list.innerHTML = `<div class="empty">Nadie esperando 🎉</div>`; return; }
     list.innerHTML = ""; qs.forEach(d => list.appendChild(userRow(d.id, d.data(), "pending")));
   }, e => { $("pendingList").innerHTML = `<div class="empty">Error: ${esc(e.message)}</div>`; });
-  unsubApproved = onSnapshot(query(col, where("status", "==", "approved")), (qs) => {
+  unsubApproved = onSnapshot(query(col, where("status", "==", "approved")), qs => {
     const list = $("approvedList");
     if (qs.empty) { list.innerHTML = `<div class="empty">Aún no hay aprobados.</div>`; return; }
     list.innerHTML = ""; qs.forEach(d => list.appendChild(userRow(d.id, d.data(), "approved")));
@@ -117,8 +124,7 @@ function startAdmin() {
 function userRow(uid, u, kind) {
   const row = document.createElement("div"); row.className = "urow";
   const img = document.createElement("img"); img.src = u.photoURL || "/icon-192.png"; img.referrerPolicy = "no-referrer";
-  const info = document.createElement("div"); info.className = "u";
-  info.innerHTML = `<b>${esc(u.displayName || "Sin nombre")}</b><span>${esc(u.email || "")}</span>`;
+  const info = document.createElement("div"); info.className = "u"; info.innerHTML = `<b>${esc(u.displayName || "Sin nombre")}</b><span>${esc(u.email || "")}</span>`;
   const acts = document.createElement("div"); acts.className = "acts";
   if (kind === "pending") {
     const ok = document.createElement("button"); ok.className = "btn btn-ok btn-sm"; ok.textContent = "Aprobar"; ok.onclick = () => setStatus(uid, "approved");
@@ -136,15 +142,11 @@ async function setStatus(uid, status) {
   catch (e) { toast("No se pudo: " + (e.message || e)); }
 }
 
-/* ---------------- IMPORTAR LIBROS (admin) ---------------- */
+/* ---------------- IMPORTAR LIBROS ---------------- */
 function ilog(m) { const el = $("importLog"); el.textContent += (el.textContent ? "\n" : "") + m; el.scrollTop = el.scrollHeight; }
 function splitByBytes(str, maxBytes) {
   const enc = new TextEncoder(); const out = []; let start = 0; const step = 400000;
-  while (start < str.length) {
-    let end = Math.min(str.length, start + step);
-    while (enc.encode(str.slice(start, end)).length > maxBytes && end > start + 1000) end -= 20000;
-    out.push(str.slice(start, end)); start = end;
-  }
+  while (start < str.length) { let end = Math.min(str.length, start + step); while (enc.encode(str.slice(start, end)).length > maxBytes && end > start + 1000) end -= 20000; out.push(str.slice(start, end)); start = end; }
   return out;
 }
 $("importBtn") && $("importBtn").addEventListener("click", async () => {
@@ -156,140 +158,123 @@ $("importBtn") && $("importBtn").addEventListener("click", async () => {
       ilog("Leyendo " + file.name + "…");
       const obj = JSON.parse(await file.text());
       const bookId = (obj.id || file.name.replace(/\.pages\.json$|\.json$/i, "")).toLowerCase();
-      const title = obj.title || bookId;
-      const pages = obj.pages || [];
+      const title = obj.title || bookId; const pages = obj.pages || [];
       if (!pages.length) { ilog("  ⚠️ sin páginas, salto."); continue; }
       const pieces = splitByBytes(JSON.stringify(pages), 900 * 1024);
-      // borrar bundles viejos
       const old = await getDocs(collection(db, "books", bookId, "bundles"));
       if (!old.empty) { let b = writeBatch(db), n = 0; for (const d of old.docs) { b.delete(d.ref); if (++n >= 400) { await b.commit(); b = writeBatch(db); n = 0; } } if (n) await b.commit(); }
-      // escribir meta + bundles
-      await setDoc(doc(db, "books", bookId), { title, pageCount: pages.length, bundleCount: pieces.length, updatedAt: serverTimestamp() });
+      await setDoc(doc(db, "books", bookId), { title, pageCount: pages.length, bundleCount: pieces.length, updatedAt: serverTimestamp() }, { merge: true });
       let batch = writeBatch(db), ops = 0;
-      for (let i = 0; i < pieces.length; i++) {
-        batch.set(doc(db, "books", bookId, "bundles", String(i)), { i, data: pieces[i] });
-        if (++ops >= 400) { await batch.commit(); batch = writeBatch(db); ops = 0; ilog(`  ${bookId}: ${i + 1}/${pieces.length}`); }
-      }
+      for (let i = 0; i < pieces.length; i++) { batch.set(doc(db, "books", bookId, "bundles", String(i)), { i, data: pieces[i] }); if (++ops >= 400) { await batch.commit(); batch = writeBatch(db); ops = 0; ilog(`  ${bookId}: ${i + 1}/${pieces.length}`); } }
       if (ops) await batch.commit();
-      try { const { deleteBook } = await idb(); await deleteBook(bookId); } catch {}
+      try { const c = await idb(); await c.deleteBook(bookId); } catch {}
       ilog(`✅ ${bookId}: ${pages.length} páginas en ${pieces.length} bloques.`);
     } catch (e) { ilog("❌ " + file.name + ": " + (e.message || e)); }
   }
-  ilog("Listo. Recargá la zona de estudio para ver los cambios.");
-  toast("Importación terminada ✅");
+  ilog("Listo ✅. Ahora en la zona de estudio: elegí el libro y tocá 'Generar curso'.");
 });
 
-/* ---------------- IndexedDB cache ---------------- */
+/* ---------------- IndexedDB ---------------- */
 function idb() {
   return new Promise((resolve) => {
     const req = indexedDB.open("avici", 1);
-    req.onupgradeneeded = () => { req.result.createObjectStore("books"); };
-    req.onsuccess = () => {
-      const dbi = req.result;
-      resolve({
-        get: (k) => new Promise(r => { const t = dbi.transaction("books").objectStore("books").get(k); t.onsuccess = () => r(t.result); t.onerror = () => r(null); }),
-        put: (k, v) => new Promise(r => { const t = dbi.transaction("books", "readwrite").objectStore("books").put(v, k); t.onsuccess = () => r(true); t.onerror = () => r(false); }),
-        deleteBook: (k) => new Promise(r => { const t = dbi.transaction("books", "readwrite").objectStore("books").delete(k); t.onsuccess = () => r(true); t.onerror = () => r(false); }),
-      });
-    };
-    req.onerror = () => resolve({ get: async () => null, put: async () => false, deleteBook: async () => false });
+    req.onupgradeneeded = () => req.result.createObjectStore("books");
+    req.onsuccess = () => { const d = req.result; resolve({
+      get: k => new Promise(r => { const t = d.transaction("books").objectStore("books").get(k); t.onsuccess = () => r(t.result); t.onerror = () => r(null); }),
+      put: (k, v) => new Promise(r => { const t = d.transaction("books", "readwrite").objectStore("books").put(v, k); t.onsuccess = () => r(1); t.onerror = () => r(0); }),
+      deleteBook: k => new Promise(r => { const t = d.transaction("books", "readwrite").objectStore("books").delete(k); t.onsuccess = () => r(1); t.onerror = () => r(0); }),
+    }); };
+    req.onerror = () => resolve({ get: async () => null, put: async () => 0, deleteBook: async () => 0 });
   });
 }
 
-/* ---------------- ZONA DE ESTUDIO ---------------- */
+/* ---------------- ESTUDIO ---------------- */
 let studyInit = false, book = null, bookIndex = null, curPage = 1, chatHistory = [], pendingSel = "";
+let course = null, progress = {}, curLesson = null;
 const STOP = new Set("de la que el en y los las un una para con por del al se su sus lo como mas más o e ni pero si no es son ser este esta estos estas entre sobre cuando cada muy sin ese esa hay han ha".split(" "));
 function tokenize(s) { return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(/[^a-z0-9]+/).filter(w => w.length >= 3 && !STOP.has(w)); }
 
 function initStudy(user) {
-  if (studyInit) return; studyInit = true;
+  if (studyInit) { return; } studyInit = true;
   const sel = $("bookSel"); sel.innerHTML = BOOKS.map(b => `<option value="${b.id}">${esc(b.title)}</option>`).join("");
-  sel.addEventListener("change", () => loadAndRender(sel.value));
-  // tabs
-  document.querySelectorAll(".tabs button").forEach(btn => btn.addEventListener("click", () => {
-    document.querySelectorAll(".tabs button").forEach(b => b.classList.remove("active")); btn.classList.add("active");
-    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
-    $("panel-" + btn.dataset.tab).classList.add("active");
-  }));
-  // reader controls
+  sel.addEventListener("change", () => selectBook(sel.value));
+  document.querySelectorAll(".tabs button").forEach(btn => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
+  // reader
   $("pgPrev").onclick = () => renderPage(curPage - 1);
   $("pgNext").onclick = () => renderPage(curPage + 1);
   $("pgInput").addEventListener("change", () => renderPage(parseInt($("pgInput").value) || 1));
-  $("searchBtn").onclick = doSearch;
-  $("searchInput").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
+  $("searchBtn").onclick = doSearch; $("searchInput").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
   // chat
-  $("chatSend").onclick = sendChat;
-  $("chatInput").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } });
+  $("chatSend").onclick = sendChat; $("chatInput").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } });
   // notes
-  $("noteAdd").onclick = addNote;
-  startNotes(user);
-  // selección de texto
+  $("noteAdd").onclick = addNote; startNotes(user);
+  // course
+  $("genCourseBtn") && ($("genCourseBtn").onclick = generateCourse);
+  $("btnBackMap") && ($("btnBackMap").onclick = () => { show("lessonView", false); show("courseHome", true); });
   setupSelection();
-  loadAndRender(sel.value);
+  selectBook(sel.value);
+}
+function switchTab(tab) {
+  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+  $("panel-" + tab).classList.add("active");
 }
 
-async function loadAndRender(bookId) {
-  book = null; bookIndex = null; chatHistory = [];
-  $("pageContent").textContent = ""; show("bookLoading", true); $("bookLoadingTxt").textContent = "Cargando libro…";
+async function selectBook(bookId) {
+  book = null; bookIndex = null; course = null; chatHistory = [];
+  show("lessonView", false); show("courseHome", true);
+  $("courseMap").innerHTML = ""; $("pageContent").textContent = "";
+  await loadBookData(bookId);
+  await loadProgress(bookId);
+  await loadCourse(bookId);
+}
+
+async function loadBookData(bookId) {
+  show("bookLoading", true); $("bookLoadingTxt").textContent = "Cargando libro…";
   try {
-    const cache = await idb();
-    let data = await cache.get(bookId);
+    const cache = await idb(); let data = await cache.get(bookId);
     if (!data || !data.pages) {
       const meta = await getDoc(doc(db, "books", bookId));
-      if (!meta.exists()) { show("bookLoading", false); $("pageContent").innerHTML = `<div class="empty">Este libro todavía no fue importado.${(auth.currentUser && (auth.currentUser.email || "").toLowerCase() === ADMIN_EMAIL) ? " Usá el importador de arriba (admin)." : " Avisale a Sebastián."}</div>`; return; }
-      const m = meta.data(); const n = m.bundleCount || 0;
+      if (!meta.exists()) { show("bookLoading", false); return; }
+      const m = meta.data();
       $("bookLoadingTxt").textContent = `Descargando ${m.title}… (una sola vez)`;
       const bs = await getDocs(collection(db, "books", bookId, "bundles"));
       const arr = []; bs.forEach(d => arr.push(d.data())); arr.sort((a, b) => a.i - b.i);
-      const str = arr.map(x => x.data).join("");
-      data = { id: bookId, title: m.title, pages: JSON.parse(str) };
+      data = { id: bookId, title: m.title, pages: JSON.parse(arr.map(x => x.data).join("")) };
       await cache.put(bookId, data);
     }
     book = data;
-    $("bookLoadingTxt").textContent = "Preparando el buscador…";
+    $("bookLoadingTxt").textContent = "Preparando buscador…";
     bookIndex = buildIndex(book.pages);
-    show("bookLoading", false);
     renderPage(1);
-  } catch (e) {
-    show("bookLoading", false);
-    $("pageContent").innerHTML = `<div class="empty">No se pudo cargar: ${esc(e.message || e)}</div>`;
-  }
+  } catch (e) { $("pageContent").innerHTML = `<div class="empty">No se pudo cargar el libro: ${esc(e.message || e)}</div>`; }
+  show("bookLoading", false);
 }
 
 function buildIndex(pages) {
   const chunks = [];
-  for (const p of pages) {
-    const t = (p.text || "").replace(/[ \t]+/g, " ");
-    for (let i = 0; i < t.length; i += 950) {
-      const c = t.slice(i, i + 1100).trim();
-      if (c.length > 40) chunks.push({ page: p.i, printed: p.printed, text: c });
-    }
-  }
+  for (const p of pages) { const t = (p.text || "").replace(/[ \t]+/g, " "); for (let i = 0; i < t.length; i += 950) { const c = t.slice(i, i + 1100).trim(); if (c.length > 40) chunks.push({ page: p.i, printed: p.printed, text: c }); } }
   const N = chunks.length, df = new Map(), docs = []; let total = 0;
-  for (const c of chunks) {
-    const terms = tokenize(c.text), tf = new Map();
-    for (const t of terms) tf.set(t, (tf.get(t) || 0) + 1);
-    for (const t of tf.keys()) df.set(t, (df.get(t) || 0) + 1);
-    docs.push({ tf, len: terms.length }); total += terms.length;
-  }
+  for (const c of chunks) { const terms = tokenize(c.text), tf = new Map(); for (const t of terms) tf.set(t, (tf.get(t) || 0) + 1); for (const t of tf.keys()) df.set(t, (df.get(t) || 0) + 1); docs.push({ tf, len: terms.length }); total += terms.length; }
   return { N, df, docs, chunks, avgdl: total / Math.max(1, N) };
 }
-function search(idx, qStr, k = 8) {
+function search(idx, qStr, k = 8, pageRange) {
   if (!idx) return [];
-  const q = [...new Set(tokenize(qStr))]; if (!q.length) return [];
+  const q = [...new Set(tokenize(qStr))];
   const k1 = 1.5, b = 0.75, scores = new Float64Array(idx.N);
-  for (const t of q) {
-    const dfi = idx.df.get(t); if (!dfi) continue;
-    const idf = Math.log(1 + (idx.N - dfi + 0.5) / (dfi + 0.5));
-    for (let i = 0; i < idx.N; i++) {
-      const f = idx.docs[i].tf.get(t); if (!f) continue;
-      const dl = idx.docs[i].len;
-      scores[i] += idf * (f * (k1 + 1)) / (f + k1 * (1 - b + b * dl / idx.avgdl));
-    }
-  }
-  const arr = []; for (let i = 0; i < idx.N; i++) if (scores[i] > 0) arr.push([scores[i], i]);
+  if (q.length) for (const t of q) { const dfi = idx.df.get(t); if (!dfi) continue; const idf = Math.log(1 + (idx.N - dfi + 0.5) / (dfi + 0.5)); for (let i = 0; i < idx.N; i++) { const f = idx.docs[i].tf.get(t); if (!f) continue; const dl = idx.docs[i].len; scores[i] += idf * (f * (k1 + 1)) / (f + k1 * (1 - b + b * dl / idx.avgdl)); } }
+  const arr = [];
+  for (let i = 0; i < idx.N; i++) { const c = idx.chunks[i]; if (pageRange && (c.page < pageRange[0] || c.page > pageRange[1])) continue; if (scores[i] > 0 || (pageRange && !q.length)) arr.push([scores[i], i]); }
   arr.sort((a, b) => b[0] - a[0]);
   return arr.slice(0, k).map(([s, i]) => idx.chunks[i]);
+}
+function passagesForRange(pageStart, pageEnd, topicStr, k = 12) {
+  if (!bookIndex) return [];
+  let res = search(bookIndex, topicStr || "", k, [pageStart || 1, pageEnd || (book ? book.pages.length : 1)]);
+  if (res.length < 4) { // fallback: primeras chunks del rango
+    res = bookIndex.chunks.filter(c => c.page >= (pageStart || 1) && c.page <= (pageEnd || 1)).slice(0, k);
+  }
+  return res.map(p => ({ page: p.page, printed: p.printed, text: p.text }));
 }
 
 function renderPage(n) {
@@ -297,16 +282,10 @@ function renderPage(n) {
   n = Math.max(1, Math.min(book.pages.length, n | 0)); curPage = n;
   const p = book.pages[n - 1];
   $("pgInput").value = n; $("pgTotal").textContent = book.pages.length;
-  const printed = p.printed ? ` · impresa ${p.printed}` : "";
-  $("pageContent").innerHTML = `<span class="pgnum">Página ${n}${printed}</span>\n` + esc(p.text || "(página en blanco)");
+  $("pageContent").innerHTML = `<span class="pgnum">Página ${n}${p.printed ? " · impresa " + p.printed : ""}</span>\n` + esc(p.text || "(página en blanco)");
   $("pageContent").scrollTop = 0;
 }
-window.goToPage = (n) => {
-  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === "lector"));
-  document.querySelectorAll(".panel").forEach(p => p.classList.remove("active")); $("panel-lector").classList.add("active");
-  renderPage(n);
-};
-
+window.goToPage = (n) => { switchTab("libro"); renderPage(n); };
 function doSearch() {
   const q = $("searchInput").value.trim(); const box = $("searchResults");
   if (!q || !bookIndex) { show(box, false); return; }
@@ -317,83 +296,216 @@ function doSearch() {
   box.querySelectorAll(".sres").forEach(el => el.onclick = () => { renderPage(parseInt(el.dataset.pg)); show(box, false); });
 }
 
-/* ---------------- CHAT ---------------- */
-function mdToHtml(text) {
-  let h = esc(text);
-  h = h.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
-  h = h.replace(/^\s*###?\s*(.+)$/gm, "<h4>$1</h4>");
-  h = h.replace(/`([^`]+)`/g, "<code>$1</code>");
-  h = h.replace(/\(p[aá]g\.?\s*(\d{1,4})[^)]*\)/gi, (m, n) => `<button class="cite" data-pg="${n}">📄 pág. ${n}</button>`);
-  h = h.replace(/^\s*[-*]\s+(.+)$/gm, "• $1");
-  h = h.replace(/\n/g, "<br>");
-  return h;
+/* ---------------- CURSO ---------------- */
+function tocPassages() {
+  if (!book) return [];
+  const scored = book.pages.map(p => { const lines = (p.text || "").split("\n"); let s = 0; for (const l of lines) if (/\.{2,}\s*\d{1,4}\s*$/.test(l) || /\s\d{1,4}\s*$/.test(l.trim())) s++; return { p, s }; });
+  scored.sort((a, b) => b.s - a.s);
+  let toc = scored.filter(x => x.s >= 4).slice(0, 12).map(x => x.p);
+  if (toc.length < 3) toc = book.pages.slice(2, 22);
+  toc.sort((a, b) => a.i - b.i);
+  return toc.map(p => ({ page: p.i, printed: p.printed, text: p.text }));
 }
-function addMsg(role, html, cls = "") {
-  const d = document.createElement("div"); d.className = "msg " + role + (cls ? " " + cls : ""); d.innerHTML = html;
-  $("chatMsgs").appendChild(d); $("chatMsgs").scrollTop = $("chatMsgs").scrollHeight;
-  d.querySelectorAll(".cite").forEach(b => b.onclick = () => window.goToPage(parseInt(b.dataset.pg)));
-  return d;
+async function loadCourse(bookId) {
+  const home = $("courseHome"); home.innerHTML = `<div class="spinner"></div>`;
+  try {
+    const snap = await getDoc(doc(db, "books", bookId, "course", "main"));
+    if (snap.exists()) { course = snap.data().data; renderMap(bookId); }
+    else {
+      course = null;
+      home.innerHTML = isAdmin
+        ? `<div class="coursegen"><div class="em">🎓</div><h3>Todavía no hay curso de este libro</h3><p>Voy a diseñar un curso completo con IA a partir del índice del libro. Puede tardar ~1 minuto.</p><button class="btn btn-mint" id="genCourseBtn2">✨ Generar curso con IA</button><div id="genLog" class="genlog"></div></div>`
+        : `<div class="coursegen"><div class="em">🛠️</div><h3>El curso se está preparando</h3><p>Sebastián lo está armando. ¡Volvé en un rato, futura doctora! 🧠</p></div>`;
+      if (isAdmin) $("genCourseBtn2").onclick = generateCourse;
+    }
+  } catch (e) { home.innerHTML = `<div class="empty">No se pudo cargar el curso: ${esc(e.message)}</div>`; }
 }
+async function generateCourse() {
+  if (!book) { toast("Esperá a que cargue el libro."); return; }
+  const gl = $("genLog"); const setg = (m) => { if (gl) gl.textContent = m; };
+  setg("Leyendo el índice del libro…");
+  try {
+    const passages = tocPassages();
+    setg("Diseñando el curso con IA (v4-pro)… esto tarda un poco ⏳");
+    const data = await apiChat({ task: "curriculum", bookTitle: book.title, passages, mode: "pro" });
+    const c = data.result;
+    if (!c || !c.units) throw new Error("El curso no vino con el formato esperado.");
+    await setDoc(doc(db, "books", book.id, "course", "main"), { data: c, createdAt: serverTimestamp(), by: curUser.email });
+    course = c; toast("¡Curso generado! 🎓"); renderMap(book.id);
+  } catch (e) { setg("❌ " + (e.message || e)); toast("No se pudo generar: " + (e.message || e)); }
+}
+function lessonId(ui, li) { return `u${ui}l${li}`; }
+function renderMap(bookId) {
+  const home = $("courseHome");
+  const units = (course && course.units) || [];
+  const done = (progress && progress.done) || {};
+  let total = 0, doneCount = 0;
+  units.forEach((u, ui) => (u.lessons || []).forEach((l, li) => { total++; if (done[lessonId(ui, li)]) doneCount++; }));
+  const pct = total ? Math.round(doneCount / total * 100) : 0;
+  let html = `<div class="courseHead"><h2>🎓 ${esc(course.title || book.title)}</h2><div class="progbar"><div style="width:${pct}%"></div></div><div class="progtxt">${doneCount}/${total} lecciones · ${pct}%</div></div>`;
+  if (isAdmin) html += `<button class="btn btn-ghost btn-sm" id="regenCourse" style="margin-bottom:12px">🔁 Regenerar curso</button>`;
+  units.forEach((u, ui) => {
+    html += `<div class="unit"><div class="unit-h">${u.emoji || "📚"} <b>${esc(u.title)}</b></div><div class="lessons">`;
+    (u.lessons || []).forEach((l, li) => {
+      const d = done[lessonId(ui, li)];
+      html += `<div class="lesson-item" data-u="${ui}" data-l="${li}"><span class="chk">${d ? "✅" : "▶️"}</span><div class="li-txt"><b>${esc(l.title)}</b><span>${esc(l.objective || "")}</span></div></div>`;
+    });
+    html += `</div></div>`;
+  });
+  home.innerHTML = html;
+  home.querySelectorAll(".lesson-item").forEach(el => el.onclick = () => openLesson(parseInt(el.dataset.u), parseInt(el.dataset.l)));
+  if (isAdmin && $("regenCourse")) $("regenCourse").onclick = () => { if (confirm("¿Regenerar el curso? Se reemplaza el actual.")) { $("courseHome").innerHTML = `<div class="coursegen"><div class="em">🎓</div><div id="genLog" class="genlog"></div></div>`; generateCourse(); } };
+}
+
+async function openLesson(ui, li) {
+  const u = course.units[ui]; const l = u.lessons[li]; curLesson = { ui, li, l, u };
+  show("courseHome", false); show("lessonView", true);
+  $("lessonTitle").innerHTML = `${u.emoji || "📚"} ${esc(l.title)}`;
+  $("lessonObjective").textContent = l.objective || "";
+  const body = $("lessonBody"); body.innerHTML = `<div class="spinner"></div><p style="text-align:center;color:#8a9aa4">Preparando tu lección con IA… ✨</p>`;
+  const lid = lessonId(ui, li);
+  try {
+    let lesson = null;
+    const cacheSnap = await getDoc(doc(db, "books", book.id, "lessons", lid));
+    if (cacheSnap.exists()) lesson = cacheSnap.data().data;
+    if (!lesson) {
+      const passages = passagesForRange(l.pageStart, l.pageEnd, (l.title + " " + (l.topics || []).join(" ")));
+      const data = await apiChat({ task: "lesson", bookTitle: book.title, passages, mode: "pro", meta: { title: l.title, objective: l.objective } });
+      lesson = data.result;
+      try { await setDoc(doc(db, "books", book.id, "lessons", lid), { data: lesson, createdAt: serverTimestamp(), by: curUser.email }); } catch {}
+    }
+    curLesson.data = lesson; renderLessonSection("leccion");
+  } catch (e) { body.innerHTML = `<div class="empty">No se pudo generar la lección: ${esc(e.message)}</div>`; }
+}
+function renderLessonSection(sec) {
+  const d = curLesson.data || {}; const body = $("lessonBody");
+  document.querySelectorAll("#lessonSecTabs button").forEach(b => b.classList.toggle("active", b.dataset.sec === sec));
+  if (sec === "leccion") {
+    const terms = (d.keyTerms || []).map(t => `<div class="term"><b>${esc(t.term)}</b>: ${esc(t.def)}</div>`).join("");
+    body.innerHTML = `<div class="lesson-content">${md(d.content || "(sin contenido)")}</div>` + (terms ? `<h4 class="sech">🔑 Conceptos clave</h4><div class="terms">${terms}</div>` : "") + `<div class="lessfoot"><button class="btn btn-mint btn-sm" id="lsQuiz">🎮 Hacer el quiz</button> <button class="btn btn-ghost btn-sm" id="lsAsk">🤖 Preguntarle al profe</button></div>`;
+    wireCites(body);
+    $("lsQuiz").onclick = () => renderLessonSection("quiz");
+    $("lsAsk").onclick = () => { switchTab("chat"); $("chatInput").value = "Sobre la lección \"" + curLesson.l.title + "\": "; $("chatInput").focus(); };
+  } else if (sec === "quiz") { renderQuiz(d.quiz || []); }
+  else if (sec === "flash") { renderFlash(d.flashcards || []); }
+  else if (sec === "mundo") { renderContrast(); }
+}
+function renderQuiz(quiz) {
+  const body = $("lessonBody");
+  if (!quiz.length) { body.innerHTML = `<div class="empty">Esta lección no trae quiz.</div>`; return; }
+  let answered = 0, correct = 0;
+  body.innerHTML = `<div id="quizWrap"></div>`; const wrap = $("quizWrap");
+  quiz.forEach((q, qi) => {
+    const card = document.createElement("div"); card.className = "quizq";
+    card.innerHTML = `<div class="qq"><b>${qi + 1}.</b> ${esc(q.q)}</div>` + `<div class="opts">` + (q.options || []).map((o, oi) => `<button class="opt" data-oi="${oi}">${esc(o)}</button>`).join("") + `</div><div class="qexp hidden"></div>`;
+    wrap.appendChild(card);
+    card.querySelectorAll(".opt").forEach(btn => btn.onclick = () => {
+      if (card.dataset.done) return; card.dataset.done = "1"; answered++;
+      const oi = parseInt(btn.dataset.oi); const ok = oi === q.answer;
+      if (ok) { correct++; btn.classList.add("ok"); } else { btn.classList.add("bad"); const good = card.querySelector(`.opt[data-oi="${q.answer}"]`); if (good) good.classList.add("ok"); }
+      const exp = card.querySelector(".qexp"); exp.innerHTML = (ok ? "✅ ¡Correcto! " : "❌ ") + md(q.explain || ""); show(exp, true); wireCites(exp);
+      if (answered === quiz.length) finishQuiz(correct, quiz.length);
+    });
+  });
+}
+async function finishQuiz(correct, total) {
+  const pct = Math.round(correct / total * 100);
+  const body = $("lessonBody");
+  const res = document.createElement("div"); res.className = "quizres";
+  res.innerHTML = `<h3>${pct >= 60 ? "🎉 ¡Aprobaste!" : "💪 ¡Casi!"} ${correct}/${total} (${pct}%)</h3>` + (pct >= 60 ? "<p>Lección dominada. ¡Seguí así, doctora! 🧠</p>" : "<p>Repasá la lección y volvé a intentar.</p>") + `<div class="quizacts"><button class="btn btn-ghost btn-sm" id="qBack">Volver a la lección</button> <button class="btn btn-mint btn-sm" id="qMap">Al mapa del curso</button></div>`;
+  body.appendChild(res); res.scrollIntoView({ behavior: "smooth" });
+  $("qBack").onclick = () => renderLessonSection("leccion");
+  $("qMap").onclick = () => { show("lessonView", false); show("courseHome", true); };
+  if (pct >= 60) await markDone(curLesson.ui, curLesson.li, pct);
+}
+function renderFlash(cards) {
+  const body = $("lessonBody");
+  if (!cards.length) { body.innerHTML = `<div class="empty">Sin flashcards.</div>`; return; }
+  let i = 0;
+  const draw = () => {
+    body.innerHTML = `<div class="flashwrap"><div class="flashcard" id="fcard"><div class="fc-inner"><div class="fc-front">${esc(cards[i].front)}</div><div class="fc-back">${esc(cards[i].back)}</div></div></div><div class="flashnav"><button class="btn btn-ghost btn-sm" id="fPrev">◀</button><span>${i + 1}/${cards.length}</span><button class="btn btn-ghost btn-sm" id="fNext">▶</button></div><p class="fchint">Tocá la tarjeta para darla vuelta 🔄</p></div>`;
+    $("fcard").onclick = () => $("fcard").classList.toggle("flipped");
+    $("fPrev").onclick = () => { i = (i - 1 + cards.length) % cards.length; draw(); };
+    $("fNext").onclick = () => { i = (i + 1) % cards.length; draw(); };
+  };
+  draw();
+}
+async function renderContrast() {
+  const body = $("lessonBody"); const l = curLesson.l; const cid = lessonId(curLesson.ui, curLesson.li);
+  body.innerHTML = `<div class="spinner"></div><p style="text-align:center;color:#8a9aa4">Investigando qué dice el mundo hoy… 🌐</p>`;
+  try {
+    let txt = null;
+    const snap = await getDoc(doc(db, "books", book.id, "contrast", cid));
+    if (snap.exists()) txt = snap.data().text;
+    if (!txt) {
+      const passages = passagesForRange(l.pageStart, l.pageEnd, l.title);
+      const data = await apiChat({ task: "contrast", bookTitle: book.title, passages, mode: "pro", meta: { title: l.title } });
+      txt = data.answer;
+      try { await setDoc(doc(db, "books", book.id, "contrast", cid), { text: txt, createdAt: serverTimestamp() }); } catch {}
+    }
+    body.innerHTML = `<div class="lesson-content contrast">${md(txt)}</div><p class="disclaimer">🌐 Sección de contraste: combina el libro con conocimiento general actualizado. Ante dudas clínicas, verificá con fuentes oficiales.</p>`;
+    wireCites(body);
+  } catch (e) { body.innerHTML = `<div class="empty">No se pudo generar el contraste: ${esc(e.message)}</div>`; }
+}
+
+/* progreso */
+async function loadProgress(bookId) {
+  progress = {};
+  try { const s = await getDoc(doc(db, "users", curUser.uid, "progress", bookId)); if (s.exists()) progress = s.data(); } catch {}
+}
+async function markDone(ui, li, score) {
+  const id = lessonId(ui, li);
+  progress.done = progress.done || {}; progress.done[id] = true;
+  progress.scores = progress.scores || {}; progress.scores[id] = score;
+  try { await setDoc(doc(db, "users", curUser.uid, "progress", book.id), { done: progress.done, scores: progress.scores, updatedAt: serverTimestamp() }, { merge: true }); } catch {}
+}
+
+/* ---------------- CHAT (guía) ---------------- */
+function addMsg(role, html, cls = "") { const d = document.createElement("div"); d.className = "msg " + role + (cls ? " " + cls : ""); d.innerHTML = html; $("chatMsgs").appendChild(d); $("chatMsgs").scrollTop = $("chatMsgs").scrollHeight; wireCites(d); return d; }
 async function sendChat() {
   const q = $("chatInput").value.trim();
-  if (!q && !pendingSel) { return; }
-  if (!book) { toast("Esperá a que cargue el libro."); return; }
+  if (!q && !pendingSel) return;
+  if (!book) { toast("Elegí un libro."); return; }
   const mode = (document.querySelector('input[name="mode"]:checked') || {}).value || "pro";
   const selText = pendingSel; pendingSel = ""; clearSelBanner();
-  const userLabel = (selText ? `📌 <i>"${esc(selText.slice(0, 120))}${selText.length > 120 ? "…" : ""}"</i><br>` : "") + esc(q || "Explicame esto.");
-  addMsg("user", userLabel);
+  addMsg("user", (selText ? `📌 <i>"${esc(selText.slice(0, 120))}"</i><br>` : "") + esc(q || "Explicame esto."));
   $("chatInput").value = "";
   const thinking = addMsg("bot", `<span class="think dots">Pensando (${mode === "pro" ? "Pro 🧠" : "Flash ⚡"})</span>`, "think");
   try {
-    const passages = search(bookIndex, (q + " " + selText).trim(), 8).map(p => ({ page: p.page, printed: p.printed, text: p.text }));
-    const idToken = await auth.currentUser.getIdToken();
-    const r = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + idToken },
-      body: JSON.stringify({ bookTitle: book.title, passages, question: q, selectedText: selText, history: chatHistory.slice(-8), mode })
-    });
-    const data = await r.json().catch(() => ({}));
+    const passages = search(bookIndex, (q + " " + selText + " " + (curLesson ? curLesson.l.title : "")).trim(), 8).map(p => ({ page: p.page, printed: p.printed, text: p.text }));
+    const data = await apiChat({ task: "chat", bookTitle: book.title, passages, question: q, selectedText: selText, history: chatHistory.slice(-8), mode });
     thinking.remove();
-    if (!r.ok) { addMsg("bot", "⚠️ " + esc(data.error || ("Error " + r.status)), "think"); return; }
-    const ans = data.answer || "(sin respuesta)";
-    addMsg("bot", mdToHtml(ans));
+    const ans = data.answer || "(sin respuesta)"; addMsg("bot", md(ans));
     chatHistory.push({ role: "user", content: (selText ? `[fragmento: ${selText.slice(0, 300)}] ` : "") + (q || "Explicame esto.") });
     chatHistory.push({ role: "assistant", content: ans });
-  } catch (e) { thinking.remove(); addMsg("bot", "⚠️ No se pudo conectar con el asistente: " + esc(e.message || e), "think"); }
+  } catch (e) { thinking.remove(); addMsg("bot", "⚠️ " + esc(e.message || e), "think"); }
 }
 
 /* ---------------- NOTAS ---------------- */
 function startNotes(user) {
   const col = collection(db, "users", user.uid, "notes");
-  unsubNotes = onSnapshot(query(col, orderBy("createdAt", "desc")), (qs) => {
+  unsubNotes = onSnapshot(query(col, orderBy("createdAt", "desc")), qs => {
     const list = $("notesList");
     if (qs.empty) { list.innerHTML = `<div class="empty">Todavía no tenés notas.</div>`; return; }
     list.innerHTML = "";
     qs.forEach(d => {
       const nd = d.data(); const card = document.createElement("div"); card.className = "notecard";
       const pg = nd.page ? `<span class="pg" data-pg="${nd.page}">📄 pág. ${nd.page}</span>` : "";
-      card.innerHTML = `<div class="meta">${pg}<span>${nd.bookId || ""}</span></div>${esc(nd.text)}<div class="acts"><button class="btn btn-ghost btn-sm bAsk">🤖 Preguntar</button><button class="btn btn-bad btn-sm bDel">Borrar</button></div>`;
+      card.innerHTML = `<div class="meta">${pg}<span>${esc(nd.bookId || "")}</span></div>${esc(nd.text)}<div class="acts"><button class="btn btn-ghost btn-sm bAsk">🤖 Preguntar</button><button class="btn btn-bad btn-sm bDel">Borrar</button></div>`;
       card.querySelector(".bDel").onclick = () => deleteDoc(doc(db, "users", user.uid, "notes", d.id)).catch(e => toast("No se pudo borrar: " + e.message));
       card.querySelector(".bAsk").onclick = () => { pendingSel = nd.text; showSelBanner(nd.text); switchTab("chat"); $("chatInput").focus(); };
-      const pgEl = card.querySelector(".pg"); if (pgEl) pgEl.onclick = () => window.goToPage(parseInt(pgEl.dataset.pg));
+      const pgEl = card.querySelector(".pg"); if (pgEl) pgEl.onclick = () => goToPage(parseInt(pgEl.dataset.pg));
       list.appendChild(card);
     });
   }, e => { $("notesList").innerHTML = `<div class="empty">Error: ${esc(e.message)}</div>`; });
 }
 async function addNote() {
-  const t = $("noteInput").value.trim(); if (!t) return;
-  const user = auth.currentUser; if (!user) return;
-  try {
-    await addDoc(collection(db, "users", user.uid, "notes"), { text: t, bookId: book ? book.id : "", page: curPage || null, createdAt: serverTimestamp() });
-    $("noteInput").value = ""; toast("Nota guardada ✍️");
-  } catch (e) { toast("No se pudo guardar: " + (e.message || e)); }
+  const t = $("noteInput").value.trim(); if (!t || !curUser) return;
+  try { await addDoc(collection(db, "users", curUser.uid, "notes"), { text: t, bookId: book ? book.id : "", page: curPage || null, createdAt: serverTimestamp() }); $("noteInput").value = ""; toast("Nota guardada ✍️"); }
+  catch (e) { toast("No se pudo guardar: " + (e.message || e)); }
 }
 
-/* ---------------- SELECCIÓN DE TEXTO ---------------- */
-function switchTab(tab) {
-  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
-  document.querySelectorAll(".panel").forEach(p => p.classList.remove("active")); $("panel-" + tab).classList.add("active");
-}
+/* ---------------- SELECCIÓN ---------------- */
 function clearSelBanner() { const b = $("selBanner"); if (b) b.remove(); }
 function showSelBanner(text) {
   clearSelBanner();
@@ -404,25 +516,22 @@ function showSelBanner(text) {
   $("panel-chat").insertBefore(div, $("chatMsgs"));
 }
 function setupSelection() {
-  const pop = $("selPopup"); const content = $("pageContent");
+  const pop = $("selPopup");
   const place = () => {
-    const sel = window.getSelection();
-    const txt = sel && sel.toString().trim();
-    if (!txt || txt.length < 3 || !content.contains(sel.anchorNode)) { show(pop, false); return; }
+    const sel = window.getSelection(); const txt = sel && sel.toString().trim();
+    const container = $("pageContent");
+    const inLesson = document.querySelector(".lesson-content");
+    const anchorOk = txt && (container.contains(sel.anchorNode) || (inLesson && inLesson.contains(sel.anchorNode)));
+    if (!txt || txt.length < 4 || !anchorOk) { show(pop, false); return; }
     const rect = sel.getRangeAt(0).getBoundingClientRect();
-    const wrapRect = document.querySelector(".wrap").getBoundingClientRect();
-    pop.style.left = Math.max(8, rect.left - wrapRect.left) + "px";
-    pop.style.top = (rect.top - wrapRect.top - 46 + window.scrollY - document.querySelector(".wrap").offsetTop * 0) + "px";
-    // simpler: position fixed relative to viewport
-    pop.style.position = "fixed";
-    pop.style.left = Math.min(window.innerWidth - 160, Math.max(8, rect.left)) + "px";
-    pop.style.top = Math.max(8, rect.top - 46) + "px";
-    show(pop, true);
-    pop._sel = txt;
+    pop.style.position = "fixed"; pop.style.left = Math.min(window.innerWidth - 170, Math.max(8, rect.left)) + "px"; pop.style.top = Math.max(8, rect.top - 46) + "px";
+    show(pop, true); pop._sel = txt;
   };
-  content.addEventListener("mouseup", () => setTimeout(place, 10));
-  content.addEventListener("touchend", () => setTimeout(place, 10));
-  document.addEventListener("mousedown", (e) => { if (!pop.contains(e.target)) show(pop, false); });
+  document.addEventListener("mouseup", () => setTimeout(place, 10));
+  document.addEventListener("touchend", () => setTimeout(place, 10));
+  document.addEventListener("mousedown", e => { if (!pop.contains(e.target)) show(pop, false); });
   $("selAsk").onclick = () => { const t = pop._sel; if (!t) return; pendingSel = t; showSelBanner(t); switchTab("chat"); show(pop, false); $("chatInput").focus(); };
-  $("selNote").onclick = async () => { const t = pop._sel; if (!t) return; const user = auth.currentUser; try { await addDoc(collection(db, "users", user.uid, "notes"), { text: t, bookId: book ? book.id : "", page: curPage || null, createdAt: serverTimestamp() }); toast("Nota guardada ✍️"); } catch (e) { toast("No se pudo: " + e.message); } show(pop, false); };
+  $("selNote").onclick = async () => { const t = pop._sel; if (!t || !curUser) return; try { await addDoc(collection(db, "users", curUser.uid, "notes"), { text: t, bookId: book ? book.id : "", page: curPage || null, createdAt: serverTimestamp() }); toast("Nota guardada ✍️"); } catch (e) { toast("No se pudo: " + e.message); } show(pop, false); };
 }
+// tabs de secciones de lección (delegación)
+document.addEventListener("click", (e) => { const b = e.target.closest("#lessonSecTabs button"); if (b) renderLessonSection(b.dataset.sec); });

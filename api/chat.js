@@ -1,68 +1,92 @@
-// POST /api/chat  — Asistente IA especialista en los libros (proxy seguro a DeepSeek).
-// El cliente hace la búsqueda (RAG) y manda los pasajes relevantes con su nº de página.
+// POST /api/chat — Motor IA del curso (proxy seguro a DeepSeek).
+// task: 'chat' | 'curriculum' | 'lesson' | 'contrast'
 import { verifyUser, isApproved, readBody } from "./_lib.js";
 
-const SYSTEM = (bookTitle, ctx) => `Sos un PROFESOR ESPECIALISTA en el libro "${bookTitle}". Tu alumna es Florencia (le dicen "Avici"), estudiante de enfermería en Argentina 🇦🇷 que sueña con ser neurocirujana. Hablás en español rioplatense: cercano, motivador y con humor cuando cae bien, pero SIEMPRE riguroso y preciso.
+const AR = 'estudiante de enfermería argentina 🇦🇷 (Avici) que sueña con ser neurocirujana. Hablá en español rioplatense, cercano, motivador y con humor cuando cae bien, pero riguroso.';
 
-REGLAS IMPORTANTES:
-1. Basá tus respuestas en los FRAGMENTOS DEL LIBRO que te paso abajo (CONTEXTO). Cada fragmento trae su número de página.
-2. Cuando afirmes algo que viene del libro, CITÁ la página así: (pág. N). Nunca inventes un número de página.
-3. Si la respuesta NO está en los fragmentos, decilo claro: "Esto no aparece en las páginas que tengo acá". Si igual sabés la respuesta por conocimiento general, agregala en una sección aparte titulada "📌 Fuera del libro (conocimiento general)".
-4. Si ves una CONTRADICCIÓN, un dato confuso o algo que el libro dice distinto en dos lados, marcalo con "⚠️ Ojo:".
-5. Enseñá de forma DIDÁCTICA: definí los términos difíciles, usá ejemplos y analogías clínicas, y cuando sirva resumí en pasos o listas. Terminá, si aplica, con un mini "🎯 Para acordarte:".
-6. No te inventes datos médicos. Ante la duda, decí que no estás seguro.
+function ctxFrom(passages) {
+  return (passages || []).slice(0, 14)
+    .map(p => `[pág. ${p.page}] ${String(p.text || "").slice(0, 1500)}`)
+    .join("\n\n---\n\n") || "(sin fragmentos)";
+}
 
-CONTEXTO (fragmentos del libro con su página):
-${ctx || "(no se encontraron fragmentos relevantes en el libro para esta pregunta)"}`;
+function buildMessages(task, body) {
+  const { bookTitle = "el libro", passages = [], question = "", selectedText = "", history = [], meta = {} } = body;
+  const ctx = ctxFrom(passages);
+  if (task === "curriculum") {
+    return { json: true, messages: [{ role: "system", content:
+`Sos un diseñador instruccional experto en ciencias de la salud. A partir del ÍNDICE/CONTENIDO del libro "${bookTitle}", diseñá un CURSO didáctico completo (ruta de aprendizaje de lo básico a lo avanzado) para una ${AR}
+Devolvé SOLO JSON válido, sin texto extra, con esta forma exacta:
+{"title":"Nombre del curso","units":[{"title":"...","emoji":"🧠","lessons":[{"title":"...","objective":"una frase","topics":["t1","t2","t3"],"pageStart":N,"pageEnd":N}]}]}
+Reglas: cubrí TODO el libro; 5 a 9 unidades; cada unidad 3 a 8 lecciones; títulos claros y motivadores; pageStart/pageEnd = páginas aproximadas según el índice (números enteros). NADA fuera del JSON.` },
+      { role: "user", content: "ÍNDICE / CONTENIDO DEL LIBRO:\n" + ctx }] };
+  }
+  if (task === "lesson") {
+    return { json: true, messages: [{ role: "system", content:
+`Sos un profesor genial y didáctico. Creá una LECCIÓN interactiva y entretenida sobre "${meta.title}" (objetivo: ${meta.objective || ""}) basándote SOLO en los fragmentos del libro "${bookTitle}" (citá la página así (pág. N), nunca inventes páginas). Para una ${AR}
+Devolvé SOLO JSON válido con esta forma exacta:
+{"content":"explicación en MARKDOWN: intro motivadora, desarrollo con analogías y ejemplos clínicos, negritas **así**, listas, y citas (pág. N). Terminá con '🎯 Para acordarte:'","keyTerms":[{"term":"...","def":"..."}],"quiz":[{"q":"...","options":["...","...","...","..."],"answer":0,"explain":"por qué, con (pág. N)"}],"flashcards":[{"front":"pregunta o concepto","back":"respuesta breve"}]}
+Incluí 4-6 preguntas de quiz (answer = índice 0-3 de la correcta), 6-8 flashcards, 5-8 términos clave. Si algo no está en los fragmentos, no lo inventes. NADA fuera del JSON.` },
+      { role: "user", content: "FRAGMENTOS DEL LIBRO (con su página):\n" + ctx }] };
+  }
+  if (task === "contrast") {
+    return { json: false, messages: [{ role: "system", content:
+`Sos un investigador clínico. Tema: "${meta.title}". Compará lo que dice el libro "${bookTitle}" (fragmentos abajo) con el CONOCIMIENTO ACTUAL de la medicina/enfermería. Explicá en MARKDOWN, para una ${AR}:
+1. 📖 Qué dice el libro (citá pág. N).
+2. 🌐 Qué se sabe/consensúa HOY (conocimiento general; aclarale que el libro puede ser de hace años).
+3. ⚠️ Diferencias, cosas que se modernizaron o cambiaron, y mitos.
+4. 💬 "Qué se discute": puntos donde hay debate o distintas opiniones.
+Sé honesto: si no estás seguro, decilo. FRAGMENTOS DEL LIBRO:\n${ctx}` },
+      { role: "user", content: meta.title ? ("Analizá el tema: " + meta.title) : (question || "Contrastá este tema con la actualidad.") }] };
+  }
+  // chat (tutor guía)
+  const userMsg = (selectedText ? `Sobre este fragmento:\n"""${String(selectedText).slice(0, 1500)}"""\n\n` : "") + (question || "Explicame esto.");
+  return { json: false, messages: [
+    { role: "system", content:
+`Sos el PROFESOR-GUÍA especialista en "${bookTitle}", apoyando a una ${AR}
+Reglas: respondé con base en los FRAGMENTOS (citá (pág. N), no inventes páginas). Si no está en los fragmentos, decílo y marcá lo general como "📌 Fuera del libro". Marcá contradicciones con "⚠️ Ojo:". Enseñá didáctico, con ejemplos; cerrá con "🎯 Para acordarte:" cuando aplique.
+FRAGMENTOS:\n${ctx}` },
+    ...(Array.isArray(history) ? history.slice(-8).filter(m => m && m.role && m.content) : []),
+    { role: "user", content: userMsg }
+  ] };
+}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") { res.status(405).json({ error: "Método no permitido" }); return; }
-
   const key = process.env.DEEPSEEK_API_KEY;
-  if (!key) {
-    res.status(500).json({ error: "Falta DEEPSEEK_API_KEY. Agregala en Vercel → Settings → Environment Variables." });
-    return;
-  }
-
+  if (!key) { res.status(500).json({ error: "Falta DEEPSEEK_API_KEY en Vercel." }); return; }
   const user = await verifyUser(req);
   if (!user) { res.status(401).json({ error: "No autorizado. Iniciá sesión de nuevo." }); return; }
   if (!(await isApproved(user))) { res.status(403).json({ error: "Tu acceso todavía no está aprobado." }); return; }
 
-  const { bookTitle = "el libro", passages = [], question = "", selectedText = "", history = [], mode = "pro" } = readBody(req);
-  if (!question && !selectedText) { res.status(400).json({ error: "Falta la pregunta." }); return; }
+  const body = readBody(req);
+  const task = ["chat", "curriculum", "lesson", "contrast"].includes(body.task) ? body.task : "chat";
+  const mode = body.mode === "flash" ? "flash" : "pro";
+  const built = buildMessages(task, body);
 
-  const ctx = (passages || [])
-    .slice(0, 10)
-    .map((p) => `[pág. ${p.page}${p.printed ? " · impresa " + p.printed : ""}] ${String(p.text || "").slice(0, 1400)}`)
-    .join("\n\n---\n\n");
-
-  const userMsg =
-    (selectedText ? `Sobre este fragmento que seleccioné:\n"""${String(selectedText).slice(0, 1500)}"""\n\n` : "") +
-    (question || "Explicame esto.");
-
-  const messages = [
-    { role: "system", content: SYSTEM(bookTitle, ctx) },
-    ...(Array.isArray(history) ? history.slice(-8).filter((m) => m && m.role && m.content) : []),
-    { role: "user", content: userMsg },
-  ];
-
-  const base = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com";
-  const defaultModel = process.env.DEEPSEEK_MODEL || "deepseek-v4-pro";
-  const model = mode === "flash" ? "deepseek-v4-flash" : (mode === "pro" ? "deepseek-v4-pro" : defaultModel);
+  const baseUrl = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com";
+  const model = mode === "flash" ? "deepseek-v4-flash" : (process.env.DEEPSEEK_MODEL || "deepseek-v4-pro");
+  const payload = { model, messages: built.messages, temperature: task === "lesson" || task === "curriculum" ? 0.4 : 0.5, max_tokens: 4000 };
+  if (built.json) payload.response_format = { type: "json_object" };
 
   try {
-    const r = await fetch(`${base}/chat/completions`, {
+    const r = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model, messages, temperature: 0.3, max_tokens: 2000, stream: false }),
+      body: JSON.stringify(payload),
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      res.status(502).json({ error: "DeepSeek: " + (data?.error?.message || JSON.stringify(data).slice(0, 300)) });
-      return;
+    if (!r.ok) { res.status(502).json({ error: "DeepSeek: " + (data?.error?.message || JSON.stringify(data).slice(0, 300)) }); return; }
+    const content = data?.choices?.[0]?.message?.content || "";
+    if (built.json) {
+      let parsed = null;
+      try { parsed = JSON.parse(content); }
+      catch { const m = content.match(/\{[\s\S]*\}/); if (m) { try { parsed = JSON.parse(m[0]); } catch {} } }
+      if (!parsed) { res.status(502).json({ error: "El modelo no devolvió JSON válido.", raw: content.slice(0, 400) }); return; }
+      res.status(200).json({ result: parsed, model, usage: data?.usage || null });
+    } else {
+      res.status(200).json({ answer: content || "(sin respuesta)", model, usage: data?.usage || null });
     }
-    const answer = data?.choices?.[0]?.message?.content || "(sin respuesta)";
-    res.status(200).json({ answer, model, usage: data?.usage || null });
   } catch (e) {
     res.status(502).json({ error: "Error llamando a DeepSeek: " + String(e).slice(0, 200) });
   }
