@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>🧠 Página oficial de la futura Dra. Avici</title>
+
+<!-- PWA -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0fb9a6">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AVICI">
+<meta name="description" content="El quirófano digital de la futura Dra. Avici 🧠. Zona de estudio privada.">
+
+<style>
+  :root{
+    --mint:#0fb9a6; --mint-dark:#08897c; --ink:#0d2b3e; --paper:#fffdf6;
+    --pink:#ff5d8f; --yellow:#ffd23f; --bg1:#d7fff4; --bg2:#c9f0ff;
+    --ok:#1eb980; --warn:#f0a020; --bad:#e35d6a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    background:linear-gradient(135deg,var(--bg1),var(--bg2) 55%,#e9d7ff);
+    min-height:100vh; overflow-x:hidden; position:relative;
+    padding-top:env(safe-area-inset-top);
+  }
+  .floaties{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+  .floaties span{position:absolute;bottom:-60px;font-size:2rem;opacity:.35;animation:rise linear infinite}
+  @keyframes rise{0%{transform:translateY(0) rotate(0deg);opacity:0}10%{opacity:.4}90%{opacity:.4}100%{transform:translateY(-115vh) rotate(360deg);opacity:0}}
+
+  .wrap{position:relative;z-index:2;max-width:720px;margin:0 auto;padding:34px 18px 70px}
+
+  .hero{text-align:center;margin-bottom:26px}
+  .badge{display:inline-block;background:var(--pink);color:#fff;font-weight:800;padding:7px 16px;border-radius:999px;font-size:.8rem;letter-spacing:.5px;text-transform:uppercase;box-shadow:0 6px 18px rgba(255,93,143,.4);animation:wiggle 2.6s ease-in-out infinite}
+  @keyframes wiggle{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+  h1{font-size:clamp(1.8rem,6vw,2.9rem);line-height:1.1;margin:16px 0 6px;font-weight:900}
+  h1 .brain{display:inline-block;animation:bob 2s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  .sub{font-size:1.05rem;color:#3a5a6b;max-width:520px;margin:0 auto}
+
+  .monitor{background:#06222d;border-radius:16px;padding:14px 16px;margin:22px 0;box-shadow:0 10px 30px rgba(6,34,45,.35);position:relative;overflow:hidden}
+  .monitor .label{color:#61ffd6;font-size:.72rem;letter-spacing:2px;font-weight:700;display:flex;justify-content:space-between}
+  .ecg{width:100%;height:70px;display:block}
+  .ecg path{fill:none;stroke:#61ffd6;stroke-width:2.5;stroke-dasharray:1000;stroke-dashoffset:1000;animation:draw 2.4s linear infinite;filter:drop-shadow(0 0 4px #61ffd6)}
+  @keyframes draw{to{stroke-dashoffset:0}}
+
+  .card{background:var(--paper);border-radius:18px;padding:26px 24px;box-shadow:0 14px 40px rgba(13,43,62,.18);margin-top:22px}
+  .rx{border:2px dashed var(--mint);position:relative}
+  .rx::before{content:"℞";position:absolute;top:-18px;left:22px;background:var(--mint);color:#fff;font-size:1.5rem;font-weight:900;width:46px;height:46px;border-radius:12px;display:grid;place-items:center;box-shadow:0 6px 16px rgba(15,185,166,.5)}
+  .rx h2{margin:10px 0 4px;font-size:1.3rem}
+  .rx .clinic{font-size:.8rem;color:#8a9aa4;margin-bottom:18px}
+  .diag{background:#fff4f8;border-left:4px solid var(--pink);padding:12px 14px;border-radius:10px;margin:14px 0;font-size:.98rem}
+  .diag b{color:var(--pink)}
+  .rx h3{margin:20px 0 10px;font-size:1.05rem;color:var(--mint-dark)}
+  ul.meds{list-style:none;display:grid;gap:12px}
+  ul.meds li{display:flex;gap:14px;align-items:flex-start;background:#f2fffb;border:1px solid #cdeee6;border-radius:12px;padding:14px;cursor:pointer;transition:transform .15s,box-shadow .15s;user-select:none}
+  ul.meds li:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(15,185,166,.18)}
+  ul.meds li .pill{flex:0 0 auto;font-size:1.6rem;width:44px;height:44px;border-radius:12px;background:#fff;display:grid;place-items:center;box-shadow:inset 0 0 0 2px #e0f3ee}
+  ul.meds li .txt strong{display:block;font-size:1rem}
+  ul.meds li .txt span{font-size:.86rem;color:#5c7480}
+  ul.meds li .check{margin-left:auto;flex:0 0 auto;width:26px;height:26px;border-radius:50%;border:2px solid var(--mint);display:grid;place-items:center;color:#fff;font-weight:900;transition:.2s}
+  ul.meds li.done{background:#e4fff5;border-color:var(--mint)}
+  ul.meds li.done .check{background:var(--mint)}
+  ul.meds li.done .txt strong{text-decoration:line-through;color:#8a9aa4}
+  .progress{margin:16px 0 4px;font-weight:700;text-align:center;color:var(--mint-dark);min-height:24px}
+  .note{margin-top:22px;background:linear-gradient(135deg,#fff7d6,#ffe9a8);border-radius:14px;padding:16px 18px;font-size:.96rem;border:1px solid #ffdf7a}
+  .note b{color:#b8860b}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;width:100%;border:none;cursor:pointer;font-weight:800;font-size:1.05rem;padding:16px;border-radius:16px;transition:transform .15s,filter .15s}
+  .btn:active{transform:translateY(1px)}
+  .btn-mint{background:linear-gradient(135deg,var(--mint),var(--mint-dark));color:#fff;box-shadow:0 12px 28px rgba(8,137,124,.4)}
+  .btn-mint:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .btn-google{background:#fff;color:#3c4043;border:1px solid #dadce0;box-shadow:0 6px 18px rgba(0,0,0,.12)}
+  .btn-google:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(0,0,0,.16)}
+  .btn-ghost{background:#eef4f6;color:#3a5a6b;box-shadow:none}
+  .btn-sm{width:auto;padding:9px 16px;font-size:.9rem;border-radius:10px}
+  .btn-ok{background:var(--ok);color:#fff}
+  .btn-bad{background:var(--bad);color:#fff}
+  .gicon{width:20px;height:20px;flex:0 0 auto}
+
+  /* ---- Zona de acceso ---- */
+  .access h2{font-size:1.25rem;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+  .access .lead{color:#5c7480;font-size:.95rem;margin-bottom:18px}
+  .statebox{border-radius:14px;padding:18px;margin:14px 0;text-align:center}
+  .statebox .em{font-size:2.6rem;display:block;margin-bottom:8px}
+  .statebox h3{margin-bottom:6px;font-size:1.15rem}
+  .statebox p{font-size:.95rem;color:#5c7480}
+  .st-pending{background:#fff6e6;border:1px solid #ffe0a3}
+  .st-approved{background:#e4fff5;border:1px solid #b6ecd8}
+  .st-rejected{background:#ffeaec;border:1px solid #f5c2c7}
+  .whoami{display:flex;align-items:center;gap:12px;background:#f2fffb;border:1px solid #cdeee6;border-radius:12px;padding:10px 14px;margin-bottom:14px}
+  .whoami img{width:38px;height:38px;border-radius:50%;flex:0 0 auto}
+  .whoami .info{line-height:1.2;overflow:hidden}
+  .whoami .info b{display:block;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .whoami .info span{font-size:.8rem;color:#8a9aa4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+  .whoami .role{margin-left:auto;flex:0 0 auto;font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:4px 10px;border-radius:999px;background:var(--mint);color:#fff}
+
+  /* ---- Panel admin ---- */
+  .admin h3{font-size:1.05rem;margin:18px 0 10px;color:var(--mint-dark);display:flex;align-items:center;gap:8px}
+  .admin .count{background:var(--pink);color:#fff;font-size:.72rem;font-weight:800;border-radius:999px;padding:2px 9px}
+  .ulist{display:grid;gap:10px}
+  .urow{display:flex;align-items:center;gap:12px;background:#f7fbfc;border:1px solid #e2eef1;border-radius:12px;padding:10px 12px}
+  .urow img{width:36px;height:36px;border-radius:50%;flex:0 0 auto;background:#dbeee9}
+  .urow .u{line-height:1.2;overflow:hidden;flex:1;min-width:0}
+  .urow .u b{display:block;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .urow .u span{font-size:.78rem;color:#8a9aa4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+  .urow .acts{display:flex;gap:6px;flex:0 0 auto}
+  .pill-status{font-size:.68rem;font-weight:800;text-transform:uppercase;padding:3px 8px;border-radius:999px}
+  .ps-pending{background:#fff0d1;color:#a5700a}
+  .ps-approved{background:#d6f7ea;color:#0a7a56}
+  .ps-rejected{background:#ffdfe2;color:#b02a37}
+  .empty{color:#9fb0b8;font-size:.9rem;text-align:center;padding:14px}
+
+  .home{margin-top:30px;text-align:center;font-size:.9rem;color:#3a5a6b;background:rgba(255,255,255,.55);border-radius:14px;padding:16px;backdrop-filter:blur(4px)}
+  .home b{color:var(--mint-dark)}
+  footer{text-align:center;margin-top:26px;font-size:.8rem;color:#5c7480}
+  footer .heart{color:var(--pink)}
+
+  .confetti{position:fixed;top:-10px;width:10px;height:16px;z-index:99;pointer-events:none;border-radius:2px}
+  @keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:0}}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:#06222d;color:#fff;padding:13px 20px;border-radius:12px;font-size:.9rem;z-index:200;box-shadow:0 10px 30px rgba(0,0,0,.3);transition:transform .3s;max-width:90vw;text-align:center}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+
+  .spinner{width:34px;height:34px;border:4px solid #d7efe9;border-top-color:var(--mint);border-radius:50%;animation:spin 1s linear infinite;margin:20px auto}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .hidden{display:none!important}
+
+  .installcard{background:linear-gradient(135deg,#eafff9,#e3f4ff);border:1px solid #bfe9dd}
+  .installcard h3{font-size:1.05rem;margin-bottom:6px;color:var(--mint-dark)}
+  .installcard p{font-size:.9rem;color:#5c7480;margin-bottom:12px}
+  .ios-tip{font-size:.88rem;color:#3a5a6b;background:#fff;border-radius:10px;padding:12px;border:1px dashed var(--mint)}
+</style>
+</head>
+<body>
+
+<div class="floaties" id="floaties"></div>
+
+<div class="wrap">
+
+  <div class="hero">
+    <span class="badge">⚕️ Historia clínica: URGENTE</span>
+    <h1><span class="brain">🧠</span> Página oficial de la<br>futura Dra. Avici</h1>
+    <p class="sub">Sí, Avici. TU página. La de la enfermera que no vino a quedarse en enfermera, sino a abrir cráneos con estilo. 💅🔬</p>
+  </div>
+
+  <div class="monitor">
+    <div class="label"><span>♥ MONITOR AVICI · 72 bpm</span><span id="pulse">ESTABLE</span></div>
+    <svg class="ecg" viewBox="0 0 500 70" preserveAspectRatio="none">
+      <path d="M0,35 L120,35 L135,35 L145,10 L155,60 L165,20 L175,35 L300,35 L315,35 L325,12 L335,58 L345,22 L355,35 L500,35"/>
+    </svg>
+  </div>
+
+  <!-- Receta -->
+  <div class="card rx">
+    <h2>Receta médica 💊</h2>
+    <div class="clinic">Clínica del Cerebro · Consultorio de Sebastián 🩺 · Válida hasta que la cumplas</div>
+    <div class="diag">
+      <b>Diagnóstico:</b> Amiga con cerebro de neurocirujana 🧠✨ pero con memoria de pececito 🐠 a la hora de mandarme el material. Cuadro clínico: "ah sí, más tarde te paso"… y nunca llega. 😌
+    </div>
+    <h3>Tratamiento (tócalos, que se sienten rico) 👇</h3>
+    <ul class="meds">
+      <li onclick="toggle(this)"><div class="pill">📚</div><div class="txt"><strong>Los libros que tienes</strong><span>Manda foto o nombre de cada uno. Sí, TODOS. Hasta el que tiene polvo.</span></div><div class="check">✓</div></li>
+      <li onclick="toggle(this)"><div class="pill">🎒</div><div class="txt"><strong>Lo que ya tienes</strong><span>Guías, resúmenes, PDFs, apuntes, ese cuaderno hermoso… todo lo que uses.</span></div><div class="check">✓</div></li>
+      <li onclick="toggle(this)"><div class="pill">🎯</div><div class="txt"><strong>Lo que quieres</strong><span>Qué necesitas estudiar, qué se te dificulta y hacia dónde vamos (spoiler: al quirófano 🔪🧠).</span></div><div class="check">✓</div></li>
+    </ul>
+    <div class="progress" id="progress">Dosis administrada: 0 de 3 💉</div>
+    <div class="note">
+      ⚠️ <b>Efectos secundarios de NO cumplir:</b> Sebastián poniendo cara de perrito triste 🥺, esta página quedándose vacía y polvorienta 🕸️, y tu carrera de neurocirujana esperando en la sala de espera. <b>No dejes a tu cerebro en lista de espera.</b>
+    </div>
+    <a class="btn btn-mint" style="margin-top:20px;text-decoration:none" href="https://wa.me/?text=%C2%A1Avici%20reportando!%20Aqu%C3%AD%20te%20mando%20mis%20libros%2C%20lo%20que%20tengo%20y%20lo%20que%20quiero%20estudiar%20%F0%9F%A7%A0%F0%9F%92%89" target="_blank" rel="noopener">📲 Mandarle TODO a Sebastián por WhatsApp</a>
+  </div>
+
+  <!-- ZONA DE ACCESO (dinámica) -->
+  <div class="card access" id="accessCard">
+    <div id="accessLoading"><div class="spinner"></div><p style="text-align:center;color:#8a9aa4;font-size:.9rem">Conectando con la clínica…</p></div>
+
+    <!-- Logged out -->
+    <div id="viewLogin" class="hidden">
+      <h2>🔐 Zona de estudio privada</h2>
+      <p class="lead">Aquí vivirá tu material de estudio. Entra con tu Google; Sebastián (el jefe de la clínica 🩺) aprueba a quién entra.</p>
+      <button class="btn btn-google" id="btnLogin">
+        <svg class="gicon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+        Entrar con Google
+      </button>
+      <p style="font-size:.8rem;color:#9fb0b8;text-align:center;margin-top:12px">Funciona en Android, iPhone y computador 📱💻</p>
+    </div>
+
+    <!-- Pending -->
+    <div id="viewPending" class="hidden">
+      <div id="whoamiPending"></div>
+      <div class="statebox st-pending">
+        <span class="em">⏳</span>
+        <h3>Tu acceso está en revisión</h3>
+        <p>Ya avisamos a Sebastián 🩺. En cuanto te apruebe, esta pantalla se desbloquea sola (déjala abierta o vuelve a entrar). ¡Paciencia, futura doctora! 🧠</p>
+      </div>
+      <button class="btn btn-ghost" onclick="doLogout()">Cerrar sesión</button>
+    </div>
+
+    <!-- Rejected -->
+    <div id="viewRejected" class="hidden">
+      <div id="whoamiRejected"></div>
+      <div class="statebox st-rejected">
+        <span class="em">🚫</span>
+        <h3>Acceso no aprobado</h3>
+        <p>Este correo no tiene acceso por ahora. Si crees que es un error, habla con Sebastián.</p>
+      </div>
+      <button class="btn btn-ghost" onclick="doLogout()">Cerrar sesión</button>
+    </div>
+
+    <!-- Approved (student) -->
+    <div id="viewApproved" class="hidden">
+      <div id="whoamiApproved"></div>
+      <div class="statebox st-approved">
+        <span class="em">🎉</span>
+        <h3>¡Acceso aprobado, doctora! 🧠✨</h3>
+        <p>Esta es tu zona de estudio. Por ahora está en construcción 🚧 — en cuanto mandes tus libros, Sebastián empieza a llenarla de guías, repasos y exámenes de práctica.</p>
+      </div>
+      <button class="btn btn-ghost" onclick="doLogout()">Cerrar sesión</button>
+    </div>
+
+    <!-- Admin -->
+    <div id="viewAdmin" class="hidden">
+      <div id="whoamiAdmin"></div>
+      <div class="admin">
+        <h3>🩺 Solicitudes pendientes <span class="count" id="pendingCount">0</span></h3>
+        <div class="ulist" id="pendingList"><div class="empty">Cargando…</div></div>
+        <h3>✅ Aprobados</h3>
+        <div class="ulist" id="approvedList"><div class="empty">Cargando…</div></div>
+      </div>
+      <button class="btn btn-ghost" style="margin-top:16px" onclick="doLogout()">Cerrar sesión</button>
+    </div>
+  </div>
+
+  <!-- INSTALAR APP -->
+  <div class="card installcard" id="installCard">
+    <h3>📲 Instala la app en tu celular</h3>
+    <p>Para tenerla como una app de verdad (pantalla completa, ícono en tu inicio).</p>
+    <button class="btn btn-mint hidden" id="btnInstall">⬇️ Instalar AVICI</button>
+    <div class="ios-tip hidden" id="iosTip">
+      <b>En iPhone:</b> toca el botón <b>Compartir</b> <span style="font-size:1.1em">􀈂</span> (el cuadrito con la flecha ↑) abajo en Safari, y luego <b>“Añadir a pantalla de inicio”</b>. 🧠
+    </div>
+    <div class="ios-tip hidden" id="androidTip">
+      <b>En Android:</b> abre el menú <b>⋮</b> de Chrome y toca <b>“Instalar app”</b> o <b>“Añadir a pantalla de inicio”</b>.
+    </div>
+  </div>
+
+  <div class="home">
+    🏠 <b>Guarda este link.</b> Aquí, en esta misma dirección, va a vivir <b>TODO</b> lo que Sebastián te arme para estudiar. 📌 <b>No lo pierdas.</b> Este es tu quirófano digital, doctora. 🧠✨
+  </div>
+
+  <footer>Hecho con <span class="heart">❤️</span> por Sebastián para su Avici · Futura neurocirujana en construcción 🚧🧠</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  /* ---------- Landing interactivo (no necesita Firebase) ---------- */
+  const emojis=["🧠","💉","💊","🩺","🫀","📚","🩹","⚕️","🔬","🧬","✏️","🎓"];
+  const cont=document.getElementById('floaties');
+  for(let i=0;i<22;i++){const s=document.createElement('span');s.textContent=emojis[Math.floor(Math.random()*emojis.length)];s.style.left=(Math.random()*100)+'%';s.style.fontSize=(1.2+Math.random()*2)+'rem';s.style.animationDuration=(9+Math.random()*12)+'s';s.style.animationDelay=(-Math.random()*15)+'s';cont.appendChild(s);}
+  window.toggle=function(li){
+    li.classList.toggle('done');
+    const total=document.querySelectorAll('ul.meds li').length;
+    const done=document.querySelectorAll('ul.meds li.done').length;
+    const frases=["Dosis administrada: 0 de 3 💉","Vas 1 de 3… ¡el paciente reacciona! 😮","2 de 3 💪 ¡casi salvas la vida (académica)!","3 de 3 ✅ ¡CÓDIGO AZUL SUPERADO! Ahora mándalo de verdad 😎"];
+    document.getElementById('progress').textContent=frases[done];
+    document.getElementById('pulse').textContent = done===total ? "¡VIVA! 💚" : "ESTABLE";
+    if(done===total) confetti();
+  };
+  window.confetti=function(){
+    const colores=['#0fb9a6','#ff5d8f','#ffd23f','#61ffd6','#a06bff'];
+    for(let i=0;i<70;i++){const c=document.createElement('div');c.className='confetti';c.style.left=Math.random()*100+'vw';c.style.background=colores[Math.floor(Math.random()*colores.length)];c.style.animation=`fall ${2+Math.random()*2}s linear ${Math.random()*.6}s forwards`;document.body.appendChild(c);setTimeout(()=>c.remove(),4200);}
+  };
+  function toast(msg,ms=4000){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),ms);}
+  window._toast=toast;
+
+  /* ---------- PWA: service worker + instalar ---------- */
+  if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}
+  let deferredPrompt=null;
+  window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();deferredPrompt=e;const b=document.getElementById('btnInstall');b.classList.remove('hidden');});
+  document.getElementById('btnInstall').addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;document.getElementById('btnInstall').classList.add('hidden');});
+  (function iosCheck(){
+    const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+    const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+    if(standalone){document.getElementById('installCard').classList.add('hidden');return;}
+    if(isIOS){document.getElementById('iosTip').classList.remove('hidden');}
+    else{document.getElementById('androidTip').classList.remove('hidden');}
+  })();
+</script>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+  import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyC6OyQbcmh-78PeTJ8rcNDSWWcviGcc-Ds",
+    authDomain: "avici-3eb47.firebaseapp.com",
+    projectId: "avici-3eb47",
+    storageBucket: "avici-3eb47.firebasestorage.app",
+    messagingSenderId: "840855556466",
+    appId: "1:840855556466:web:82430bb7dd0f757c330deb"
+  };
+  const ADMIN_EMAIL = "fundacionsocial@gimnasioemocionalmb.com";
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+
+  const $ = (id) => document.getElementById(id);
+  const views = ["accessLoading","viewLogin","viewPending","viewRejected","viewApproved","viewAdmin"];
+  function show(view){ views.forEach(v=>$(v).classList.toggle("hidden", v!==view)); }
+
+  let unsubUserDoc=null, unsubPending=null, unsubApproved=null;
+  function cleanup(){ [unsubUserDoc,unsubPending,unsubApproved].forEach(f=>{try{f&&f();}catch(e){}}); unsubUserDoc=unsubPending=unsubApproved=null; }
+
+  function whoamiHTML(user, roleLabel){
+    const img = user.photoURL ? `<img src="${user.photoURL}" referrerpolicy="no-referrer" alt="">` : `<img src="/icon-192.png" alt="">`;
+    return `<div class="whoami">${img}<div class="info"><b>${escapeHtml(user.displayName||"Sin nombre")}</b><span>${escapeHtml(user.email||"")}</span></div><span class="role">${roleLabel}</span></div>`;
+  }
+  function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+  // Botón login
+  $("btnLogin").addEventListener("click", async ()=>{
+    try{ await signInWithPopup(auth, provider); }
+    catch(e){
+      const c=e.code||"";
+      if(c.includes("popup-blocked")||c.includes("cancelled-popup")||c.includes("operation-not-supported")||c.includes("popup-closed")){
+        try{ await signInWithRedirect(auth, provider); }catch(e2){ _toast("No se pudo abrir el login: "+(e2.message||e2)); }
+      } else if(c.includes("unauthorized-domain")){
+        _toast("Dominio no autorizado en Firebase. Avísale a Sebastián.");
+      } else if(c.includes("popup-closed-by-user")){
+        /* usuario cerró; nada */
+      } else { _toast("Error al entrar: "+(e.message||e)); }
+    }
+  });
+
+  window.doLogout = async ()=>{ cleanup(); try{ await signOut(auth); }catch(e){} };
+
+  getRedirectResult(auth).catch(()=>{});
+
+  async function ensureUserDoc(user){
+    const ref = doc(db,"users",user.uid);
+    const snap = await getDoc(ref);
+    if(!snap.exists()){
+      const isAdmin = (user.email||"").toLowerCase() === ADMIN_EMAIL.toLowerCase();
+      await setDoc(ref,{
+        email:user.email||"", displayName:user.displayName||"", photoURL:user.photoURL||"",
+        role: isAdmin?"admin":"student", status: isAdmin?"approved":"pending",
+        createdAt: serverTimestamp()
+      });
+    } else {
+      // mantener nombre/foto actualizados (permitido: es campo propio no sensible) -> solo admin puede update en reglas,
+      // así que lo omitimos para estudiantes. No es crítico.
+    }
+    return ref;
+  }
+
+  function renderByStatus(user, data){
+    const isAdmin = data.role==="admin" || (user.email||"").toLowerCase()===ADMIN_EMAIL.toLowerCase();
+    if(isAdmin){ $("whoamiAdmin").innerHTML=whoamiHTML(user,"Admin"); show("viewAdmin"); startAdmin(); return; }
+    if(data.status==="approved"){ $("whoamiApproved").innerHTML=whoamiHTML(user,"Aprobada"); show("viewApproved"); confetti(); return; }
+    if(data.status==="rejected"){ $("whoamiRejected").innerHTML=whoamiHTML(user,"Sin acceso"); show("viewRejected"); return; }
+    $("whoamiPending").innerHTML=whoamiHTML(user,"Pendiente"); show("viewPending");
+  }
+
+  function startAdmin(){
+    if(unsubPending||unsubApproved) return;
+    const usersCol = collection(db,"users");
+    unsubPending = onSnapshot(query(usersCol, where("status","==","pending")), (qs)=>{
+      const list=$("pendingList"); $("pendingCount").textContent=qs.size;
+      if(qs.empty){ list.innerHTML=`<div class="empty">Nadie esperando. ¡Todo al día! 🎉</div>`; return; }
+      list.innerHTML="";
+      qs.forEach(d=>{ const u=d.data(); list.appendChild(userRow(d.id,u,"pending")); });
+    }, (err)=>{ $("pendingList").innerHTML=`<div class="empty">Error: ${escapeHtml(err.message)}</div>`; });
+
+    unsubApproved = onSnapshot(query(usersCol, where("status","==","approved")), (qs)=>{
+      const list=$("approvedList");
+      if(qs.empty){ list.innerHTML=`<div class="empty">Aún no hay aprobados.</div>`; return; }
+      list.innerHTML="";
+      qs.forEach(d=>{ const u=d.data(); list.appendChild(userRow(d.id,u,"approved")); });
+    }, (err)=>{ $("approvedList").innerHTML=`<div class="empty">Error: ${escapeHtml(err.message)}</div>`; });
+  }
+
+  function userRow(uid,u,kind){
+    const row=document.createElement("div"); row.className="urow";
+    const img=document.createElement("img");
+    img.src=u.photoURL||"/icon-192.png"; img.referrerPolicy="no-referrer"; img.alt="";
+    const info=document.createElement("div"); info.className="u";
+    info.innerHTML=`<b>${escapeHtml(u.displayName||"Sin nombre")}</b><span>${escapeHtml(u.email||"")}</span>`;
+    const acts=document.createElement("div"); acts.className="acts";
+    if(kind==="pending"){
+      const ok=document.createElement("button"); ok.className="btn btn-ok btn-sm"; ok.textContent="Aprobar";
+      ok.onclick=()=>setStatus(uid,"approved");
+      const no=document.createElement("button"); no.className="btn btn-bad btn-sm"; no.textContent="Rechazar";
+      no.onclick=()=>setStatus(uid,"rejected");
+      acts.append(ok,no);
+    } else {
+      const badge=document.createElement("span"); badge.className="pill-status ps-approved"; badge.textContent="Aprobada";
+      const rev=document.createElement("button"); rev.className="btn btn-ghost btn-sm"; rev.textContent="Quitar";
+      rev.onclick=()=>setStatus(uid,"rejected");
+      acts.append(badge,rev);
+    }
+    row.append(img,info,acts);
+    return row;
+  }
+
+  async function setStatus(uid,status){
+    try{
+      await updateDoc(doc(db,"users",uid),{ status, approvedAt:serverTimestamp(), approvedBy: (auth.currentUser&&auth.currentUser.email)||"" });
+      _toast(status==="approved"?"✅ Aprobada. ¡A estudiar!":"Usuario actualizado.");
+    }catch(e){ _toast("No se pudo: "+(e.message||e)); }
+  }
+
+  onAuthStateChanged(auth, async (user)=>{
+    cleanup();
+    if(!user){ show("viewLogin"); return; }
+    show("accessLoading");
+    try{
+      const ref = await ensureUserDoc(user);
+      // Escuchar el doc propio en vivo (para que la aprobación se refleje sola)
+      unsubUserDoc = onSnapshot(ref, (snap)=>{
+        if(!snap.exists()) return;
+        renderByStatus(user, snap.data());
+      }, (err)=>{ _toast("Error leyendo tu acceso: "+(err.message||err)); show("viewLogin"); });
+    }catch(e){
+      _toast("Error de conexión: "+(e.message||e));
+      show("viewLogin");
+    }
+  });
+</script>
+</body>
+</html>
