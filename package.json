@@ -1,0 +1,10 @@
+{
+  "name": "avici-neuro",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "AVICI - plataforma de estudio con asistente IA (DeepSeek) especialista en los libros",
+  "dependencies": {
+    "jose": "^5.9.6"
+  }
+}
