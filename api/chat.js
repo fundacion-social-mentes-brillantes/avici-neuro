@@ -28,7 +28,7 @@ export default async function handler(req, res) {
   if (!user) { res.status(401).json({ error: "No autorizado. Iniciá sesión de nuevo." }); return; }
   if (!(await isApproved(user))) { res.status(403).json({ error: "Tu acceso todavía no está aprobado." }); return; }
 
-  const { bookTitle = "el libro", passages = [], question = "", selectedText = "", history = [] } = readBody(req);
+  const { bookTitle = "el libro", passages = [], question = "", selectedText = "", history = [], mode = "pro" } = readBody(req);
   if (!question && !selectedText) { res.status(400).json({ error: "Falta la pregunta." }); return; }
 
   const ctx = (passages || [])
@@ -47,7 +47,8 @@ export default async function handler(req, res) {
   ];
 
   const base = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com";
-  const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
+  const defaultModel = process.env.DEEPSEEK_MODEL || "deepseek-v4-pro";
+  const model = mode === "flash" ? "deepseek-v4-flash" : (mode === "pro" ? "deepseek-v4-pro" : defaultModel);
 
   try {
     const r = await fetch(`${base}/chat/completions`, {
