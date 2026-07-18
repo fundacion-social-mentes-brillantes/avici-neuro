@@ -61,7 +61,7 @@ function wireCites(el) { el.querySelectorAll(".cite").forEach(b => b.onclick = (
 
 /* ---------------- AUTH ---------------- */
 let unsubUserDoc = null, unsubPending = null, unsubApproved = null, unsubNotes = null, unsubProgress = null, unsubChats = null;
-function cleanup() { [unsubUserDoc, unsubPending, unsubApproved, unsubNotes, unsubProgress, unsubChats].forEach(f => { try { f && f(); } catch {} }); unsubUserDoc = unsubPending = unsubApproved = unsubNotes = unsubProgress = unsubChats = null; setReaderFocus(false); void resetReaderPdf(); }
+function cleanup() { [unsubUserDoc, unsubPending, unsubApproved, unsubNotes, unsubProgress, unsubChats].forEach(f => { try { f && f(); } catch {} }); unsubUserDoc = unsubPending = unsubApproved = unsubNotes = unsubProgress = unsubChats = null; stopNoteDictation(true); setReaderFocus(false); void resetReaderPdf(); }
 function whoami(user, role) {
   const img = user.photoURL ? `<img src="${esc(user.photoURL)}" referrerpolicy="no-referrer" alt="">` : `<img src="/icon-192.png" alt="">`;
   return `<div class="whoami">${img}<div class="info"><b>${esc(user.displayName || "Sin nombre")}</b><span>${esc(user.email || "")}</span></div><span class="role">${role}</span></div>`;
@@ -373,6 +373,7 @@ function initStudy(user) {
 }
 function switchTab(tab) {
   if (tab !== "libro") setReaderFocus(false);
+  if (tab !== "notas") stopNoteDictation();
   document.querySelectorAll(".tabs button").forEach(b => { const active = b.dataset.tab === tab; b.classList.toggle("active", active); b.setAttribute("aria-current", active ? "page" : "false"); });
   document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
   $("panel-" + tab).classList.add("active");
@@ -820,6 +821,114 @@ async function sendChat() {
 }
 
 /* ---------------- NOTAS ---------------- */
+const NOTE_DICTATION_READY = "Dictá tu nota; AVICI no guarda el audio.";
+let noteRecognition = null, noteDictationActive = false, noteDictationBase = "", noteDictationError = "", noteDictationAbortSilently = false, noteDictationTimer = null;
+
+function setNoteDictationState(state, message = NOTE_DICTATION_READY) {
+  const compose = document.querySelector(".note-compose"), button = $("noteMic"), label = $("noteMicLabel"), status = $("noteDictationStatus");
+  if (!compose || !button || !label || !status) return;
+  clearTimeout(noteDictationTimer);
+  compose.dataset.dictation = state;
+  button.dataset.state = state;
+  const listening = state === "listening";
+  button.setAttribute("aria-pressed", String(listening));
+  button.setAttribute("aria-label", listening ? "Detener dictado" : "Comenzar dictado");
+  label.textContent = listening ? "Detener" : "Dictar";
+  status.querySelector("span").textContent = message;
+}
+
+function resetNoteDictationStatus(delay = 3200) {
+  clearTimeout(noteDictationTimer);
+  noteDictationTimer = setTimeout(() => { if (!noteDictationActive) setNoteDictationState("ready"); }, delay);
+}
+
+function stopNoteDictation(silent = false) {
+  if (!noteRecognition || !noteDictationActive) return;
+  noteDictationAbortSilently = silent;
+  try { silent ? noteRecognition.abort() : noteRecognition.stop(); }
+  catch { noteDictationActive = false; setNoteDictationState("ready"); }
+}
+
+function dictationErrorMessage(code) {
+  if (code === "not-allowed" || code === "service-not-allowed") return "Permití el acceso al micrófono para poder dictar.";
+  if (code === "audio-capture") return "No encontré un micrófono disponible.";
+  if (code === "network") return "El dictado necesita conexión. Probá nuevamente.";
+  if (code === "no-speech") return "No escuché ninguna voz. Tocá Dictar e intentá otra vez.";
+  return "No pude iniciar el dictado. Probá nuevamente.";
+}
+
+function setupNoteDictation() {
+  const button = $("noteMic"), input = $("noteInput"); if (!button || !input) return;
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    button.disabled = true;
+    button.title = "Este navegador no ofrece dictado directo. Podés usar el micrófono del teclado.";
+    setNoteDictationState("unsupported", "Usá el micrófono del teclado para dictar en este navegador.");
+    button.setAttribute("aria-label", "Dictado directo no disponible; usá el micrófono del teclado");
+    return;
+  }
+
+  try { noteRecognition = new SpeechRecognition(); }
+  catch {
+    button.disabled = true;
+    button.title = "Este navegador no ofrece dictado directo. Podés usar el micrófono del teclado.";
+    setNoteDictationState("unsupported", "Usá el micrófono del teclado para dictar en este navegador.");
+    button.setAttribute("aria-label", "Dictado directo no disponible; usá el micrófono del teclado");
+    return;
+  }
+  const browserLanguage = navigator.language || "es-AR";
+  noteRecognition.lang = browserLanguage.toLowerCase().startsWith("es") ? browserLanguage : "es-AR";
+  noteRecognition.continuous = true;
+  noteRecognition.interimResults = true;
+  noteRecognition.maxAlternatives = 1;
+
+  noteRecognition.onstart = () => {
+    noteDictationActive = true;
+    setNoteDictationState("listening", "Escuchando… hablá con calma y tocá Detener al terminar.");
+  };
+  noteRecognition.onresult = event => {
+    const transcript = Array.from(event.results)
+      .map(result => String(result[0]?.transcript || "").trim())
+      .filter(Boolean)
+      .join(" ");
+    input.value = noteDictationBase + transcript;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+  noteRecognition.onerror = event => {
+    if (event.error === "aborted" && noteDictationAbortSilently) return;
+    noteDictationError = dictationErrorMessage(event.error);
+    setNoteDictationState("error", noteDictationError);
+  };
+  noteRecognition.onend = () => {
+    noteDictationActive = false;
+    if (noteDictationAbortSilently) {
+      noteDictationAbortSilently = false; noteDictationError = ""; setNoteDictationState("ready"); return;
+    }
+    if (noteDictationError) {
+      setNoteDictationState("error", noteDictationError); noteDictationError = ""; resetNoteDictationStatus(4200); return;
+    }
+    setNoteDictationState("ready", "Dictado listo. Podés editarlo o guardar la nota.");
+    resetNoteDictationStatus();
+  };
+
+  button.onclick = () => {
+    if (noteDictationActive) { stopNoteDictation(); return; }
+    noteDictationError = ""; noteDictationAbortSilently = false;
+    noteDictationBase = input.value.trimEnd();
+    if (noteDictationBase) noteDictationBase += " ";
+    try {
+      noteDictationActive = true;
+      setNoteDictationState("listening", "Activando el micrófono…");
+      noteRecognition.start();
+      input.focus();
+    } catch {
+      noteDictationActive = false;
+      setNoteDictationState("error", "El micrófono ya está ocupado. Esperá un momento e intentá otra vez.");
+      resetNoteDictationStatus(4200);
+    }
+  };
+}
+
 function startNotes(user) {
   const col = collection(db, "users", user.uid, "notes");
   unsubNotes = onSnapshot(query(col, orderBy("createdAt", "desc")), qs => {
@@ -838,6 +947,7 @@ function startNotes(user) {
   }, e => { $("notesList").innerHTML = `<div class="empty">Error: ${esc(e.message)}</div>`; });
 }
 async function addNote() {
+  stopNoteDictation(true);
   const t = $("noteInput").value.trim(); if (!t || !curUser) return;
   try { await addDoc(collection(db, "users", curUser.uid, "notes"), { text: t, bookId: book ? book.id : "", page: curPage || null, createdAt: serverTimestamp() }); $("noteInput").value = ""; toast("Nota guardada ✍️"); }
   catch (e) { toast("No se pudo guardar: " + (e.message || e)); }
@@ -873,3 +983,4 @@ function setupSelection() {
 }
 // tabs de secciones de lección (delegación)
 document.addEventListener("click", (e) => { const b = e.target.closest("#lessonSecTabs button"); if (b) renderLessonSection(b.dataset.sec); });
+setupNoteDictation();

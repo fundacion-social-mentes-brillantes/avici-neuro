@@ -1,5 +1,5 @@
 /* Service Worker — AVICI PWA (network-first para tener siempre lo último) */
-const CACHE = "avici-v6-visual-reader";
+const CACHE = "avici-v7-note-dictation";
 const ASSETS = ["/", "/index.html", "/styles.css", "/app.js", "/reader-utils.js", "/vendor/pdfjs/pdf.min.mjs", "/vendor/pdfjs/pdf.worker.min.mjs", "/manifest.webmanifest", "/assets/logo-avici.png", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {

@@ -19,7 +19,7 @@ Una app web (PWA instalable) donde una estudiante entra con su Google, un admin 
 - 🤖 **El Profe**: chat con un tutor IA experto, natural, que cita páginas. Soporta **chats múltiples** (crear/cambiar/borrar).
 - 🏆 **Gamificación**: XP, niveles, rachas y logros.
 - 📖 **Lector híbrido**: vista Visual del PDF original —incluye imágenes, tablas, diagramas, colores y composición— y vista Lectura adaptable, sin mezclar contenido entre páginas.
-- ✍️ **Notas** privadas + seleccionar texto → preguntar al bot o guardar nota.
+- ✍️ **Notas** privadas por texto o dictado con micrófono + seleccionar texto → preguntar al bot o guardar nota.
 - 📲 **PWA** instalable en Android / iPhone / PC.
 
 ---

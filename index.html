@@ -241,8 +241,17 @@
         <section class="panel" id="panel-notas" aria-label="Notas privadas">
           <div class="panel-heading"><div><p class="section-label">PRIVATE MEMORY</p><h2>Notas de campo</h2></div><p>Capturá lo importante y volvé a preguntarlo cuando quieras.</p></div>
           <div class="noteadd">
-            <label class="sr-only" for="noteInput">Nueva nota</label>
-            <textarea id="noteInput" placeholder="Escribí una observación, una duda o algo que querés recordar…"></textarea>
+            <div class="note-compose" data-dictation="ready">
+              <label class="sr-only" for="noteInput">Nueva nota</label>
+              <textarea id="noteInput" placeholder="Escribí o dictá una observación, una duda o algo que querés recordar…"></textarea>
+              <div class="note-compose-footer">
+                <span class="note-dictation-status" id="noteDictationStatus" aria-live="polite"><i></i><span>Dictá tu nota; AVICI no guarda el audio.</span></span>
+                <button class="note-mic" id="noteMic" type="button" aria-label="Comenzar dictado" aria-pressed="false" aria-controls="noteInput" aria-describedby="noteDictationStatus" data-state="ready">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14.5a3.5 3.5 0 0 0 3.5-3.5V6a3.5 3.5 0 1 0-7 0v5a3.5 3.5 0 0 0 3.5 3.5Z"/><path d="M5.8 10.6V11a6.2 6.2 0 0 0 12.4 0v-.4M12 17.2V21M9.2 21h5.6"/></svg>
+                  <span id="noteMicLabel">Dictar</span>
+                </button>
+              </div>
+            </div>
             <button class="btn btn-mint btn-sm" id="noteAdd">Guardar nota</button>
           </div>
           <div id="notesList"><div class="empty">Todavía no tenés notas.</div></div>
