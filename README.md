@@ -126,6 +126,8 @@ pagina-avici/
 3. **Chat:** BM25 recupera 14 fragmentos diversificados por página y expande la consulta con la lección y la conversación reciente. DeepSeek recibe hasta 10 rondas de historial y responde citando páginas.
 4. **Mundo hoy:** DeepSeek traduce el tema a conceptos biomédicos → PubMed recupera literatura → DeepSeek propone el contraste → el servidor descarta cualquier afirmación cuya cita no exista literalmente en el libro o en el resumen. El resultado se renueva cada 3 días o manualmente.
 
+Como Mazarrasa es una edición histórica, sus 77 lecciones separan visiblemente **lo que enseña la edición** de **la evidencia actual**. El validador rechaza frases que presenten un dato del libro como “hoy” o “actualmente”; la actualización solo puede aparecer en “Mundo hoy” con fuentes trazables.
+
 **Memoria real:** cada conversación guarda sus últimos 40 mensajes en Firestore, se restaura entre dispositivos y queda vinculada al libro en el que nació. El modelo recibe los últimos 20 mensajes (10 rondas) con límites de tamaño para conservar continuidad sin permitir prompts gigantes.
 
 **Caché con invalidación:**

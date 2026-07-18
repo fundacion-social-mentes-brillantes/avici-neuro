@@ -1,4 +1,4 @@
-export const LESSON_ENGINE_VERSION = "lesson-2026.07-v3";
+export const LESSON_ENGINE_VERSION = "lesson-2026.07-v4";
 export const MASTERY_SCORE = 80;
 
 export class LessonValidationError extends Error {
@@ -56,13 +56,16 @@ function normalizeQuestion(raw, index, allowedPages, issues, label = "Pregunta")
   return { q, options, answer, explain, level };
 }
 
-export function normalizeLessonData(raw, { allowedPages = [] } = {}) {
+export function normalizeLessonData(raw, { allowedPages = [], timeSensitive = false } = {}) {
   const issues = [];
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new LessonValidationError(["la respuesta no es un objeto JSON"]);
 
   const content = cleanText(raw.content);
   if (content.length < 600) issues.push("la explicación es demasiado corta");
   issues.push(...citationIssues(content, allowedPages, "La explicación"));
+  if (timeSensitive && /\b(hoy|actualmente)\b/iu.test(content)) {
+    issues.push("la explicación presenta un dato de esta edición como si fuera actual");
+  }
 
   const learningObjectives = uniqueBy(
     (Array.isArray(raw.learningObjectives) ? raw.learningObjectives : []).map(objective => ({ value: cleanText(objective, 350) })),

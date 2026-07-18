@@ -61,6 +61,16 @@ test("una cita inventada o un juego ambiguo bloquean la lección", () => {
   );
 });
 
+test("un capítulo sensible no puede presentar datos de la edición como actuales", () => {
+  const bad = validLesson(23);
+  bad.content += " Hoy, esta es la cifra vigente para toda la población.";
+  assert.throws(
+    () => normalizeLessonData(bad, { allowedPages: [23], timeSensitive: true }),
+    error => error instanceof LessonValidationError
+      && error.issues.some(issue => issue.includes("como si fuera actual")),
+  );
+});
+
 test("las flashcards se mezclan sin alterar el mazo original", () => {
   const cards = [{ front: "A" }, { front: "B" }, { front: "C" }];
   const shuffled = shuffleCards(cards, () => 0);

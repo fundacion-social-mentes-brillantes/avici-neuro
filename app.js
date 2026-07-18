@@ -636,7 +636,7 @@ async function openLesson(ui, li) {
       if (passages.length < 4) throw new Error("No encontré suficientes fragmentos de este capítulo para crear una lección fiable.");
       body.innerHTML = `<div class="lesson-loader"><div class="spinner"></div><b>Construyendo desde el capítulo ${esc(l.chapter || "")}</b><span>Después verifico citas, opciones y respuestas antes de mostrarla.</span></div>`;
       const data = await apiChat({ task: "lesson", bookTitle: book.title, passages, mode: "flash", meta: { title: l.title, objective: l.objective, chapter: l.chapter, pageStart: l.pageStart, pageEnd: l.pageEnd, freshness: l.freshness } });
-      lesson = normalizeLessonData(data.result, { allowedPages: passages.map(passage => passage.page) });
+      lesson = normalizeLessonData(data.result, { allowedPages: passages.map(passage => passage.page), timeSensitive: l.freshness === "revisar-hoy" });
       try { await setDoc(doc(db, "books", book.id, "lessons", lid), { data: lesson, lessonVersion: LESSON_ENGINE_VERSION, sourceVersion: book.contentVersion || null, createdAt: serverTimestamp(), by: curUser.email }); } catch {}
     }
     curLesson.data = lesson; renderLessonSection("leccion");
@@ -651,8 +651,10 @@ function renderLessonSection(sec) {
   if (sec === "leccion") {
     const goals = (d.learningObjectives || []).map(goal => `<li>${esc(goal)}</li>`).join("");
     const terms = (d.keyTerms || []).map(t => `<div class="term"><b>${esc(t.term)}</b>: ${esc(t.def)}</div>`).join("");
-    body.innerHTML = (goals ? `<aside class="lesson-goals"><b>Al terminar vas a poder</b><ol>${goals}</ol></aside>` : "") + `<div class="lesson-content">${md(d.content || "(sin contenido)")}</div>` + (terms ? `<h4 class="sech">🔑 Conceptos clave</h4><div class="terms">${terms}</div>` : "") + `<div class="lessfoot"><button class="btn btn-mint btn-sm" id="lsQuiz">🎮 Comprobar dominio</button> <button class="btn btn-ghost btn-sm" id="lsAsk">🤖 Preguntarle al profe</button></div>`;
+    const freshness = curLesson.l.freshness === "revisar-hoy" ? `<aside class="freshness-note"><span>⏳</span><div><b>Primero, la edición. Después, la evidencia actual.</b><p>Esta lección explica fielmente lo que enseña el libro. Para guías, cifras o prácticas vigentes, abrí <button type="button" id="goMundo">Mundo hoy</button>: allí cualquier diferencia necesita fuentes verificables.</p></div></aside>` : "";
+    body.innerHTML = freshness + (goals ? `<aside class="lesson-goals"><b>Al terminar vas a poder</b><ol>${goals}</ol></aside>` : "") + `<div class="lesson-content">${md(d.content || "(sin contenido)")}</div>` + (terms ? `<h4 class="sech">🔑 Conceptos clave</h4><div class="terms">${terms}</div>` : "") + `<div class="lessfoot"><button class="btn btn-mint btn-sm" id="lsQuiz">🎮 Comprobar dominio</button> <button class="btn btn-ghost btn-sm" id="lsAsk">🤖 Preguntarle al profe</button></div>`;
     wireCites(body);
+    if ($("goMundo")) $("goMundo").onclick = () => renderLessonSection("mundo");
     $("lsQuiz").onclick = () => renderLessonSection("quiz");
     $("lsAsk").onclick = () => { switchTab("chat"); $("chatInput").value = "Sobre la lección \"" + curLesson.l.title + "\": "; $("chatInput").focus(); };
   } else if (sec === "quiz") { renderQuiz(d.quiz || []); }

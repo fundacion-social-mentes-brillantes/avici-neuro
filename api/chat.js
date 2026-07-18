@@ -42,6 +42,7 @@ REGLAS DE FIABILIDAD:
 - Las cuatro opciones de cada pregunta deben ser distintas y debe existir una sola mejor respuesta.
 - El quiz debe comprobar tres niveles: recuerdo, comprensión y aplicación. El caso final puede ser clínico, comunitario o de investigación según el capítulo.
 - El material del libro puede ser antiguo. No lo presentes como recomendación clínica vigente; para eso existe la sección "Mundo hoy".
+- Cuando una frase provenga de datos, calendarios, sistemas sanitarios, tratamientos o consensos de esta edición, escribí "el libro describe", "en esta edición" o "en el período analizado". Está PROHIBIDO llamarlo "actual", "vigente" u "hoy". No actualices el dato por tu cuenta.
 
 Está dirigida a una ${AR}
 Devolvé SOLO JSON válido con esta forma exacta:
@@ -126,7 +127,10 @@ export default async function handler(req, res) {
       if (!parsed) { res.status(502).json({ error: "El modelo no devolvió JSON válido.", raw: content.slice(0, 900), finish: data?.choices?.[0]?.finish_reason || null, contentLen: content.length, reasoningLen: (data?.choices?.[0]?.message?.reasoning_content || "").length }); return; }
       if (task === "lesson") {
         try {
-          parsed = normalizeLessonData(parsed, { allowedPages: (body.passages || []).map(passage => passage.page) });
+          parsed = normalizeLessonData(parsed, {
+            allowedPages: (body.passages || []).map(passage => passage.page),
+            timeSensitive: body.meta?.freshness === "revisar-hoy",
+          });
         } catch (error) {
           const detail = error instanceof LessonValidationError ? error.issues.join("; ") : String(error?.message || error);
           res.status(502).json({ error: "La IA respondió, pero la lección no pasó la auditoría: " + detail.slice(0, 700) });

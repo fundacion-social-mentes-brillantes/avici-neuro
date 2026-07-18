@@ -389,6 +389,11 @@ body.reader-focus-active .reader-stage { grid-template-columns: 72px minmax(0, 7
 .lesson-loader span, .lesson-error p { margin: 0; color: var(--ink-soft); font-size: .8rem; line-height: 1.5; }
 .lesson-error { border-color: #dfc5c6; background: #fff8f7; }
 .lesson-goals, .mastery-note { max-width: 850px; margin: 0 0 22px; padding: 18px 20px; border: 1px solid #b8dbcf; border-radius: 15px; background: linear-gradient(135deg, rgba(218, 246, 236, .78), rgba(255, 255, 255, .78)); }
+.freshness-note { display: flex; gap: 13px; max-width: 850px; margin: 0 0 14px; padding: 15px 17px; border: 1px solid #d6cfa7; border-radius: 15px; background: #fbf7e7; }
+.freshness-note > span { font-size: 1.2rem; }
+.freshness-note b { color: #5c5129; }
+.freshness-note p { margin: 5px 0 0; color: #756b48; font-size: .74rem; line-height: 1.5; }
+.freshness-note button { padding: 0; border: 0; color: #0a705b; background: transparent; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
 .lesson-goals > b, .mastery-note > b { color: #12614e; }
 .lesson-goals ol { display: grid; gap: 7px; margin: 12px 0 0; padding-left: 20px; color: #405258; font-size: .82rem; line-height: 1.45; }
 .mastery-note { display: flex; align-items: center; justify-content: space-between; gap: 14px; }

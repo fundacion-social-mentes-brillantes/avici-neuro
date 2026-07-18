@@ -160,11 +160,9 @@ const MAZARRASA_UNITS = [
 ];
 
 const CURRENT_THIBODEAU = new Set([16, 19, 21, 22, 24, 27, 29, 30, 33, 34]);
-const CURRENT_MAZARRASA = new Set([
-  4, 5, 9, 10, 19, 20, 21, 22, 23, 24, 25, 31, 32, 33, 34, 36,
-  40, 41, 42, 43, 45, 46, 47, 48, 49, 50, 51, 52, 58, 59, 60, 61,
-  62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77,
-]);
+// Mazarrasa conserva enorme valor formativo, pero su edición es anterior a muchas
+// guías, calendarios, sistemas sanitarios y datos epidemiológicos vigentes.
+const CURRENT_MAZARRASA = new Set(Array.from({ length: 77 }, (_, index) => index + 1));
 
 function makeLesson(bookId, row, pageEnd) {
   const [chapter, title, pageStart] = row;
