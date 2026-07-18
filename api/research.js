@@ -63,7 +63,7 @@ Sé honesto: si las fuentes no alcanzan para algo, decilo; NO inventes datos ni 
   ];
 
   const base = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com";
-  const model = process.env.DEEPSEEK_MODEL || "deepseek-v4-pro";
+  const model = "deepseek-v4-flash"; // flash: rápido y confiable (evita timeouts); sintetiza bien las fuentes reales
   try {
     const r = await fetch(`${base}/chat/completions`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` }, body: JSON.stringify({ model, messages, temperature: 0.4, max_tokens: 2600 }) });
     const data = await r.json().catch(() => ({}));

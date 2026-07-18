@@ -327,7 +327,7 @@ async function generateCourse() {
   try {
     const passages = tocPassages();
     setg("Diseñando el curso con IA (v4-pro)… esto tarda un poco ⏳");
-    const data = await apiChat({ task: "curriculum", bookTitle: book.title, passages, mode: "pro" });
+    const data = await apiChat({ task: "curriculum", bookTitle: book.title, passages, mode: "flash" });
     const c = data.result;
     if (!c || !c.units) throw new Error("El curso no vino con el formato esperado.");
     await setDoc(doc(db, "books", book.id, "course", "main"), { data: c, createdAt: serverTimestamp(), by: curUser.email });
@@ -370,7 +370,7 @@ async function openLesson(ui, li) {
     if (cacheSnap.exists()) lesson = cacheSnap.data().data;
     if (!lesson) {
       const passages = passagesForRange(l.pageStart, l.pageEnd, (l.title + " " + (l.topics || []).join(" ")));
-      const data = await apiChat({ task: "lesson", bookTitle: book.title, passages, mode: "pro", meta: { title: l.title, objective: l.objective } });
+      const data = await apiChat({ task: "lesson", bookTitle: book.title, passages, mode: "flash", meta: { title: l.title, objective: l.objective } });
       lesson = data.result;
       try { await setDoc(doc(db, "books", book.id, "lessons", lid), { data: lesson, createdAt: serverTimestamp(), by: curUser.email }); } catch {}
     }
