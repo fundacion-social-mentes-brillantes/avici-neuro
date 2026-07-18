@@ -49,7 +49,7 @@ function md(text) {
   let h = esc(text);
   h = h.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>");
   h = h.replace(/^\s*###?\s*(.+)$/gm, "<h4>$1</h4>");
-  h = h.replace(/\(p[aá]g\.?\s*(\d{1,4})[^)]*\)/gi, (m, n) => `<button class="cite" data-pg="${n}">📄 pág. ${n}</button>`);
+  h = h.replace(/\(?\bp[aá]g(?:ina)?s?\.?\s*(\d{1,4})\b\)?/gi, (m, n) => `<button class="cite" data-pg="${n}">📄 pág. ${n}</button>`);
   h = h.replace(/^\s*[-*]\s+(.+)$/gm, "• $1");
   h = h.replace(/\n/g, "<br>");
   return h;
