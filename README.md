@@ -1,6 +1,6 @@
 # 🧠 AVICI — Plataforma de estudio con IA
 
-> El "mundo de estudio" de la futura Dra. Avici: convierte libros de enfermería/medicina en **cursos interactivos** con un **profesor IA** experto, juegos, gamificación e investigación web en vivo.
+> El "mundo de estudio" de la futura Dra. Avici: convierte libros de enfermería/medicina en **cursos interactivos** con un **profesor IA** experto, juegos, gamificación y contraste biomédico verificable.
 
 **🌐 En vivo:** https://pagina-avici.vercel.app
 
@@ -15,7 +15,7 @@ Una app web (PWA instalable) donde una estudiante entra con su Google, un admin 
 - 🎓 **Cursos** por libro: unidades → lecciones, ordenadas de lo básico a lo avanzado.
 - 📘 **Lecciones didácticas** (explicación + conceptos clave) que **citan la página exacta** del libro para verificar.
 - 🎮 **Juegos**: quiz de opción múltiple, "unir conceptos", flashcards.
-- 🌐 **"Mundo hoy"**: investigación web real (Wikipedia ES/EN en vivo) que **contrasta el libro con el conocimiento actual** (qué cambió, qué se moderniza, qué se discute) con fuentes enlazadas.
+- 🧬 **"Mundo hoy"**: busca literatura biomédica en PubMed y solo muestra afirmaciones que conservan una cita textual verificable; los cambios y debates requieren evidencia tanto del libro como de la fuente actual.
 - 🤖 **El Profe**: chat con un tutor IA experto, natural, que cita páginas. Soporta **chats múltiples** (crear/cambiar/borrar).
 - 🏆 **Gamificación**: XP, niveles, rachas y logros.
 - 📖 **Lector híbrido**: vista Visual del PDF original —incluye imágenes, tablas, diagramas, colores y composición— y vista Lectura adaptable, sin mezclar contenido entre páginas.
@@ -35,7 +35,7 @@ Navegador (PWA)
   │
   ├─ Vercel Serverless Functions (Node)  → el "cerebro" seguro
   │     ├─ /api/chat      → DeepSeek: chat, currículum, lección, contraste
-  │     ├─ /api/research  → Wikipedia (en vivo) + DeepSeek: sección "Mundo hoy"
+  │     ├─ /api/research  → PubMed + DeepSeek + validación de citas: sección "Mundo hoy"
   │     ├─ /api/models    → lista modelos de la cuenta DeepSeek
   │     └─ /api/book-pdf  → proxy privado con autenticación y rangos HTTP
   │
@@ -60,7 +60,7 @@ Navegador (PWA)
 - **Backend:** Vercel Serverless Functions (Node, ESM). Verificación de token con [`jose`](https://www.npmjs.com/package/jose).
 - **Auth + DB:** Firebase Authentication (Google) + Cloud Firestore.
 - **IA:** DeepSeek API (OpenAI-compatible) — `deepseek-v4-pro` (profundo) y `deepseek-v4-flash` (rápido, por defecto para tareas estructuradas).
-- **Investigación web:** API pública de Wikipedia (ES + EN), sin key.
+- **Investigación biomédica:** NCBI E-utilities / PubMed, con resúmenes, fecha, revista, PMID y tipo de publicación.
 - **Hosting + CI/CD:** GitHub → Vercel (auto-deploy en cada `push`).
 
 ---
@@ -75,7 +75,7 @@ pagina-avici/
 │  ├─ _lib.js            # verificar ID token de Firebase + estado "aprobado"
 │  ├─ book-pdf.js        # entrega privada de los PDF originales por rangos
 │  ├─ chat.js            # DeepSeek: tareas chat | curriculum | lesson | contrast
-│  ├─ research.js        # "Mundo hoy": Wikipedia en vivo + contraste con DeepSeek
+│  ├─ research.js        # "Mundo hoy": PubMed + contraste con evidencia verificable
 │  └─ models.js          # listar modelos DeepSeek disponibles
 ├─ manifest.webmanifest  # PWA
 ├─ sw.js                 # service worker (network-first)
@@ -122,7 +122,7 @@ pagina-avici/
 1. **Currículum:** desde el índice del libro, DeepSeek diseña unidades → lecciones (una vez, se cachea).
 2. **Lección:** al abrirla, se recuperan los fragmentos relevantes (BM25) del rango de páginas y DeepSeek arma explicación + quiz + flashcards + conceptos (se cachea).
 3. **Chat:** BM25 recupera 14 fragmentos diversificados por página y expande la consulta con la lección y la conversación reciente. DeepSeek recibe hasta 10 rondas de historial y responde citando páginas.
-4. **Mundo hoy:** Wikipedia en vivo + fragmentos del libro → DeepSeek contrasta; el resultado se renueva como máximo cada 7 días o manualmente.
+4. **Mundo hoy:** DeepSeek traduce el tema a conceptos biomédicos → PubMed recupera literatura → DeepSeek propone el contraste → el servidor descarta cualquier afirmación cuya cita no exista literalmente en el libro o en el resumen. El resultado se renueva cada 3 días o manualmente.
 
 **Memoria real:** cada conversación guarda sus últimos 40 mensajes en Firestore, se restaura entre dispositivos y queda vinculada al libro en el que nació. El modelo recibe los últimos 20 mensajes (10 rondas) con límites de tamaño para conservar continuidad sin permitir prompts gigantes.
 
@@ -143,7 +143,7 @@ El Profe sí conserva contexto, usa recuperación sobre el libro y aprovecha cac
 - cachés versionadas, con TTL donde el contenido pretende estar actualizado;
 - conversaciones aisladas por libro y caché local aislada por usuario.
 
-**Límites honestos:** la recuperación sigue siendo léxica (BM25), no vectorial; “Mundo hoy” usa Wikipedia y sirve para orientación, no reemplaza guías clínicas o bases como PubMed; y la respuesta todavía no se transmite por streaming. Es un tutor sólido y contextual, no una fuente clínica infalible.
+**Límites honestos:** la recuperación del libro sigue siendo léxica (BM25), no vectorial; “Mundo hoy” trabaja principalmente con títulos y resúmenes indexados en PubMed, y la validación textual comprueba trazabilidad pero no sustituye una revisión clínica humana ni la lectura completa del artículo. La respuesta todavía no se transmite por streaming. Es un tutor sólido y contextual, no una fuente clínica infalible.
 
 ---
 
@@ -192,7 +192,7 @@ Luego el admin sube esos `.pages.json` con el importador. El texto alimenta bús
 - Más juegos (verdadero/falso, completar espacios, casos clínicos).
 - Metas semanales / ranking.
 - Respuestas del bot en streaming.
-- Fuentes médicas extra (p. ej. PubMed) en "Mundo hoy".
+- Añadir guías clínicas oficiales y revisiones de organismos sanitarios a "Mundo hoy".
 
 ---
 

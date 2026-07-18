@@ -671,27 +671,55 @@ async function apiResearch(payload) {
   if (!r.ok) throw new Error(data.error || ("Error " + r.status));
   return data;
 }
+const RESEARCH_CACHE_VERSION = "biomed-v2";
+function researchSourceType(source) {
+  const types = (source.publicationTypes || []).join(" ").toLowerCase();
+  if (types.includes("guideline")) return "Guía";
+  if (types.includes("meta-analysis")) return "Metaanálisis";
+  if (types.includes("systematic review")) return "Revisión sistemática";
+  if (types.includes("review")) return "Revisión";
+  if (types.includes("clinical trial")) return "Ensayo clínico";
+  return "Artículo biomédico";
+}
+function researchDate(value) {
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat("es-AR", { dateStyle: "medium" }).format(date) : "fecha no disponible";
+}
 async function renderContrast() {
   const body = $("lessonBody"); const l = curLesson.l; const cid = lessonId(curLesson.ui, curLesson.li);
-  body.innerHTML = `<div class="spinner"></div><p style="text-align:center;color:#8a9aa4">Investigando en internet qué dice el mundo hoy… 🌐🔎</p>`;
+  body.innerHTML = `<div class="spinner"></div><p style="text-align:center;color:#8a9aa4">Buscando evidencia biomédica y verificando cada cita… 🧬🔎</p>`;
   try {
-    let txt = null, sources = [];
+    let txt = null, sources = [], status = "no_reliable_evidence", retrievedAt = "";
     const snap = await getDoc(doc(db, "books", book.id, "contrast", cid));
     if (snap.exists()) {
       const cached = snap.data();
       const created = cached.createdAt?.toMillis ? cached.createdAt.toMillis() : 0;
-      const fresh = created && Date.now() - created < 7 * 24 * 60 * 60 * 1000;
+      const fresh = created && Date.now() - created < 3 * 24 * 60 * 60 * 1000;
       const sameBook = !book.contentVersion || cached.sourceVersion === book.contentVersion;
-      if (fresh && sameBook) { txt = cached.text; sources = cached.sources || []; }
+      const sameResearch = cached.researchVersion === RESEARCH_CACHE_VERSION;
+      if (fresh && sameBook && sameResearch) {
+        txt = cached.text; sources = cached.sources || []; status = cached.status || status; retrievedAt = cached.retrievedAt || "";
+      }
     }
     if (!txt) {
-      const passages = passagesForRange(l.pageStart, l.pageEnd, l.title);
-      const data = await apiResearch({ topic: l.title, bookTitle: book.title, passages });
-      txt = data.answer; sources = data.sources || [];
-      try { await setDoc(doc(db, "books", book.id, "contrast", cid), { text: txt, sources, sourceVersion: book.contentVersion || null, createdAt: serverTimestamp() }); } catch {}
+      const passages = passagesForRange(l.pageStart, l.pageEnd, `${l.title} ${(l.topics || []).join(" ")}`);
+      const data = await apiResearch({ topic: l.title, objective: l.objective || "", topics: l.topics || [], bookTitle: book.title, passages });
+      txt = data.answer; sources = data.sources || []; status = data.status || status; retrievedAt = data.retrievedAt || new Date().toISOString();
+      try {
+        await setDoc(doc(db, "books", book.id, "contrast", cid), {
+          text: txt, sources, status, retrievedAt, researchVersion: RESEARCH_CACHE_VERSION,
+          sourceVersion: book.contentVersion || null, createdAt: serverTimestamp(),
+        });
+      } catch {}
     }
-    const srcHtml = sources.length ? `<div class="sources"><b>🔗 Fuentes consultadas (en vivo):</b>${sources.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)} (${esc(s.lang || "")})</a>`).join("")}</div>` : "";
-    body.innerHTML = `<div class="lesson-content contrast">${md(txt)}</div>${srcHtml}<p class="disclaimer">🌐 Investigación en vivo (Wikipedia ES/EN) contrastada con el libro por IA. Ante dudas clínicas, verificá siempre con fuentes oficiales.</p><div style="margin-top:10px"><button class="btn btn-ghost btn-sm" id="reContrast">🔄 Investigar de nuevo</button></div>`;
+    const statusCopy = status === "contrast_found"
+      ? ["Contraste respaldado", "Encontré diferencias o debates que conservaron evidencia válida del libro y de PubMed."]
+      : status === "current_evidence_only"
+        ? ["Sin cambio demostrable", "Hay evidencia actual sobre el tema, pero no alcanza para afirmar que el libro esté desactualizado."]
+        : ["Sin evidencia suficiente", "La página prefiere dejar el contraste vacío antes que completar algo sin respaldo."];
+    const statusHtml = `<div class="evidence-status ${esc(status)}"><span class="evidence-status-dot"></span><div><b>${statusCopy[0]}</b><small>${statusCopy[1]} Consulta: ${esc(researchDate(retrievedAt))}.</small></div></div>`;
+    const srcHtml = sources.length ? `<div class="sources evidence-sources"><div class="sources-head"><b>🧬 Evidencia biomédica consultada</b><span>PubMed · ${sources.length} fuente${sources.length === 1 ? "" : "s"}</span></div>${sources.map(s => `<a class="source-item" href="${esc(s.url)}" target="_blank" rel="noopener"><b>Fuente ${esc(s.id || "")} · ${esc(s.title)}</b><span>${esc([s.journal, s.year, researchSourceType(s), s.pmid ? `PMID ${s.pmid}` : ""].filter(Boolean).join(" · "))}</span></a>`).join("")}</div>` : "";
+    body.innerHTML = `${statusHtml}<div class="lesson-content contrast">${md(txt)}</div>${srcHtml}<p class="disclaimer">🔎 Búsqueda automatizada en PubMed. Las afirmaciones solo se muestran cuando conservan una cita textual verificable de la fuente y, para declarar cambios, también del libro. Sigue siendo material educativo y no reemplaza guías clínicas ni criterio profesional.</p><div style="margin-top:10px"><button class="btn btn-ghost btn-sm" id="reContrast">🔄 Buscar evidencia nueva</button></div>`;
     wireCites(body);
     $("reContrast").onclick = async () => { try { await deleteDoc(doc(db, "books", book.id, "contrast", cid)); } catch {} renderContrast(); };
   } catch (e) { body.innerHTML = `<div class="empty">No se pudo investigar: ${esc(e.message)}</div>`; }
