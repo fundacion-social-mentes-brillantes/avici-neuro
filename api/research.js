@@ -234,12 +234,15 @@ async function callDeepSeek(key, messages, maxTokens, timeoutMs) {
   const response = await fetch(`${base}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model: MODEL, messages, temperature: 0.1, max_tokens: maxTokens, response_format: { type: "json_object" } }),
+    body: JSON.stringify({ model: MODEL, messages, thinking: { type: "disabled" }, temperature: 0.1, max_tokens: maxTokens, response_format: { type: "json_object" } }),
     signal: AbortSignal.timeout(timeoutMs),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.error?.message || `DeepSeek respondió ${response.status}`);
-  return data?.choices?.[0]?.message?.content || "";
+  const choice = data?.choices?.[0];
+  const content = choice?.message?.content || "";
+  if (!content.trim()) throw new Error(`DeepSeek devolvió contenido vacío (${choice?.finish_reason || "sin motivo"})`);
+  return content;
 }
 
 function sourceContext(sources) {
@@ -404,7 +407,7 @@ export default async function handler(req, res) {
   const sources = await findPubmedSources(queries).catch(() => []);
   if (!sources.length) {
     const empty = emptyResult("No encontré literatura de PubMed suficientemente relevante para este tema. Para no inventar, no genero un contraste.");
-    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v4" });
+    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v5" });
     return;
   }
 
@@ -419,10 +422,10 @@ export default async function handler(req, res) {
     const reason = status === "no_reliable_evidence" ? "Encontré artículos relacionados, pero ninguna afirmación superó la verificación de citas. Para no inventar, no genero un contraste." : "";
     const usedIds = citedSourceIds(result);
     const usedSources = sources.filter(source => usedIds.has(source.id));
-    res.status(200).json({ result, answer: renderResearchAnswer(result, reason), status, sources: publicSources(usedSources), queries, model: MODEL, retrievedAt, researchVersion: "biomed-v4" });
+    res.status(200).json({ result, answer: renderResearchAnswer(result, reason), status, sources: publicSources(usedSources), queries, model: MODEL, retrievedAt, researchVersion: "biomed-v5" });
   } catch (error) {
     console.warn("Mundo hoy: no se pudo validar el análisis", { name: error?.name, message: cleanText(error?.message, 180) });
     const empty = emptyResult("La evidencia se recuperó, pero no se pudo validar el análisis. Para no inventar, no genero un contraste.");
-    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v4", validationError: cleanText(error?.message, 180) });
+    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v5", validationError: cleanText(error?.message, 180) });
   }
 }
