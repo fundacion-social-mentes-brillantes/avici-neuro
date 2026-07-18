@@ -26,7 +26,7 @@ Reglas: cubrí TODO el libro; 5 a 9 unidades; cada unidad 3 a 8 lecciones; títu
 `Sos un profesor genial y didáctico. Creá una LECCIÓN interactiva y entretenida sobre "${meta.title}" (objetivo: ${meta.objective || ""}) basándote SOLO en los fragmentos del libro "${bookTitle}" (citá la página así (pág. N), nunca inventes páginas). Para una ${AR}
 Devolvé SOLO JSON válido con esta forma exacta:
 {"content":"explicación en MARKDOWN: intro motivadora, desarrollo con analogías y ejemplos clínicos, negritas **así**, listas, y citas (pág. N). Terminá con '🎯 Para acordarte:'","keyTerms":[{"term":"...","def":"..."}],"quiz":[{"q":"...","options":["...","...","...","..."],"answer":0,"explain":"por qué, con (pág. N)"}],"flashcards":[{"front":"pregunta o concepto","back":"respuesta breve"}]}
-Incluí 4-6 preguntas de quiz (answer = índice 0-3 de la correcta), 6-8 flashcards, 5-8 términos clave. Si algo no está en los fragmentos, no lo inventes. NADA fuera del JSON.` },
+Incluí 4-6 preguntas de quiz (answer = índice 0-3 de la correcta; IMPORTANTE: variá la posición de la correcta entre 0,1,2 y 3, que NO siempre sea la misma), 6-8 flashcards, 5-8 términos clave. Si algo no está en los fragmentos, no lo inventes. NADA fuera del JSON.` },
       { role: "user", content: "FRAGMENTOS DEL LIBRO (con su página):\n" + ctx }] };
   }
   if (task === "contrast") {
