@@ -1,4 +1,5 @@
 .vercel
+.env*.local
 node_modules
 .DS_Store
 Thumbs.db
@@ -6,3 +7,4 @@ firebase-debug.log
 *.log
 .playwright-cli/
 output/
+tmp/

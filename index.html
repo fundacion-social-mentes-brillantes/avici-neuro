@@ -152,16 +152,64 @@
           </div>
         </section>
 
-        <section class="panel" id="panel-libro" aria-label="Lector del libro">
-          <div class="panel-heading"><div><p class="section-label">SOURCE READER</p><h2>Libro activo</h2></div><p>Consultá la fuente sin salir de tu sesión.</p></div>
-          <div class="readerctrls">
-            <button id="pgPrev" title="Página anterior" aria-label="Página anterior">←</button>
-            <div class="pg">PÁG. <input id="pgInput" type="number" min="1" aria-label="Número de página"> / <span id="pgTotal">—</span></div>
-            <button id="pgNext" title="Página siguiente" aria-label="Página siguiente">→</button>
-            <div class="searchbox"><input id="searchInput" placeholder="Buscar concepto en el libro…" aria-label="Buscar en el libro"><button id="searchBtn" class="mini" aria-label="Buscar">Buscar</button></div>
+        <section class="panel reader-panel" id="panel-libro" aria-label="Lector del libro">
+          <header class="reader-heading">
+            <div>
+              <p class="section-label">AVICI / PRIVATE READER</p>
+              <h2 id="readerBookTitle">Tu libro, página por página.</h2>
+              <p id="readerBookMeta">La fuente original, convertida en una experiencia cómoda para leer.</p>
+            </div>
+            <button class="reader-focus-button" id="readerFocusBtn" type="button" aria-pressed="false">
+              <span aria-hidden="true">⌗</span><b id="readerFocusLabel">Lectura inmersiva</b>
+            </button>
+          </header>
+
+          <div class="reader-shell" id="readerShell" data-theme="paper" data-family="serif" data-layout="fluid" data-view="visual">
+            <div class="reader-progress" role="progressbar" aria-label="Progreso en el libro" aria-valuemin="1" aria-valuemax="1" aria-valuenow="1">
+              <span id="readerProgressBar"></span>
+            </div>
+
+            <div class="reader-toolbar">
+              <div class="reader-page-jump" aria-label="Navegación por páginas">
+                <button class="reader-nav-button" id="pgPrev" type="button" title="Página anterior" aria-label="Página anterior">←</button>
+                <label class="pg" for="pgInput"><span>PÁGINA</span><input id="pgInput" type="number" min="1" aria-label="Número de página"><i>/</i><b id="pgTotal">—</b></label>
+                <button class="reader-nav-button" id="pgNext" type="button" title="Página siguiente" aria-label="Página siguiente">→</button>
+              </div>
+
+              <div class="reader-tools" aria-label="Preferencias de lectura">
+                <div class="reader-view-switch" role="group" aria-label="Vista de la página">
+                  <button id="readerVisualBtn" type="button" aria-pressed="true"><span aria-hidden="true">▧</span><b>Visual</b></button>
+                  <button id="readerTextBtn" type="button" aria-pressed="false"><span aria-hidden="true">≋</span><b>Lectura</b></button>
+                </div>
+                <div class="reader-size-control">
+                  <button id="readerFontDown" type="button" aria-label="Reducir texto">A−</button>
+                  <span id="readerFontValue">100%</span>
+                  <button id="readerFontUp" type="button" aria-label="Aumentar texto">A+</button>
+                </div>
+                <button class="reader-tool" id="readerFamilyBtn" type="button" title="Cambiar tipografía"><span aria-hidden="true">Ag</span><b id="readerFamilyLabel">Serif</b></button>
+                <button class="reader-tool" id="readerThemeBtn" type="button" title="Cambiar tema"><span aria-hidden="true">◐</span><b id="readerThemeLabel">Noche</b></button>
+              </div>
+            </div>
+
+            <div class="reader-search-row">
+              <div class="searchbox"><input id="searchInput" placeholder="Buscar una palabra o concepto…" aria-label="Buscar en el libro"><button id="searchBtn" class="mini" aria-label="Buscar">Buscar</button></div>
+              <p><span></span> El contenido siempre permanece dentro de su página original.</p>
+            </div>
+
+            <div id="searchResults" class="reader-results hidden"></div>
+
+            <div class="reader-stage">
+              <button class="reader-edge reader-edge-prev" id="pgPrevEdge" type="button" aria-label="Página anterior"><span>←</span><small>ANTERIOR</small></button>
+              <article class="pagecontent" id="pageContent" tabindex="0" aria-live="polite">Elegí un libro para consultarlo.</article>
+              <button class="reader-edge reader-edge-next" id="pgNextEdge" type="button" aria-label="Página siguiente"><span>→</span><small>SIGUIENTE</small></button>
+            </div>
+
+            <footer class="reader-footer">
+              <button id="pgPrevBottom" type="button"><span>←</span><b>Página anterior</b></button>
+              <p><span id="readerProgressText">Página —</span><small>Usá ← → o deslizá para avanzar</small></p>
+              <button id="pgNextBottom" type="button"><b>Página siguiente</b><span>→</span></button>
+            </footer>
           </div>
-          <div id="searchResults" class="hidden"></div>
-          <article class="pagecontent" id="pageContent">Elegí un libro para consultarlo.</article>
         </section>
 
         <section class="panel chat-panel" id="panel-chat" aria-label="Profesor IA">

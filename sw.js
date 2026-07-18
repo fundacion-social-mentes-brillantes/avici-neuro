@@ -1,6 +1,6 @@
 /* Service Worker — AVICI PWA (network-first para tener siempre lo último) */
-const CACHE = "avici-v4-florencia-mark";
-const ASSETS = ["/", "/index.html", "/styles.css", "/app.js", "/manifest.webmanifest", "/assets/logo-avici.png", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
+const CACHE = "avici-v6-visual-reader";
+const ASSETS = ["/", "/index.html", "/styles.css", "/app.js", "/reader-utils.js", "/vendor/pdfjs/pdf.min.mjs", "/vendor/pdfjs/pdf.worker.min.mjs", "/manifest.webmanifest", "/assets/logo-avici.png", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS).catch(() => {})).then(() => self.skipWaiting()));
@@ -18,7 +18,7 @@ self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return; // Firebase/gstatic/API van directo
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return; // Firebase/gstatic y API privadas van directo
   // network-first: siempre intenta traer lo último; si no hay red, usa caché
   e.respondWith(
     fetch(req)

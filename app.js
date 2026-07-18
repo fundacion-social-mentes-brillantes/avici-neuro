@@ -1,4 +1,6 @@
 // ===== AVICI — Curso interactivo por libro (auth + admin + curso + libro + bot + notas) =====
+import { fluidPageText, getReaderPageModel } from "./reader-utils.js";
+import * as pdfjsLib from "./vendor/pdfjs/pdf.min.mjs";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
 import {
   getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
@@ -28,6 +30,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: "select_account" });
+pdfjsLib.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs/pdf.worker.min.mjs";
 
 const $ = (id) => document.getElementById(id);
 const show = (el, on = true) => { const e = typeof el === "string" ? $(el) : el; if (e) e.classList.toggle("hidden", !on); };
@@ -58,7 +61,7 @@ function wireCites(el) { el.querySelectorAll(".cite").forEach(b => b.onclick = (
 
 /* ---------------- AUTH ---------------- */
 let unsubUserDoc = null, unsubPending = null, unsubApproved = null, unsubNotes = null, unsubProgress = null, unsubChats = null;
-function cleanup() { [unsubUserDoc, unsubPending, unsubApproved, unsubNotes, unsubProgress, unsubChats].forEach(f => { try { f && f(); } catch {} }); unsubUserDoc = unsubPending = unsubApproved = unsubNotes = unsubProgress = unsubChats = null; }
+function cleanup() { [unsubUserDoc, unsubPending, unsubApproved, unsubNotes, unsubProgress, unsubChats].forEach(f => { try { f && f(); } catch {} }); unsubUserDoc = unsubPending = unsubApproved = unsubNotes = unsubProgress = unsubChats = null; setReaderFocus(false); void resetReaderPdf(); }
 function whoami(user, role) {
   const img = user.photoURL ? `<img src="${esc(user.photoURL)}" referrerpolicy="no-referrer" alt="">` : `<img src="/icon-192.png" alt="">`;
   return `<div class="whoami">${img}<div class="info"><b>${esc(user.displayName || "Sin nombre")}</b><span>${esc(user.email || "")}</span></div><span class="role">${role}</span></div>`;
@@ -192,11 +195,137 @@ function idb() {
 /* ---------------- ESTUDIO ---------------- */
 let studyInit = false, book = null, bookIndex = null, curPage = 1, chatHistory = [], pendingSel = "";
 let course = null, progress = {}, curLesson = null;
+const READER_PREFS_KEY = "avici-reader-preferences-v1";
+let readerPrefs = { scale: 1, theme: "paper", family: "serif", layout: "fluid", view: "visual" };
+let readerPdfDoc = null, readerPdfBookId = "", readerPdfLoading = null, readerPdfRenderTask = null, readerPdfRenderId = 0;
 const BADGE = { primera:{emoji:"🎓",label:"Primera lección"}, cinco:{emoji:"⭐",label:"5 lecciones"}, perfecto:{emoji:"💯",label:"Quiz perfecto"}, racha3:{emoji:"🔥",label:"Racha de 3 días"}, unidad:{emoji:"🏅",label:"Unidad completa"}, curso:{emoji:"👑",label:"¡Curso completo!"} };
 function totalLessons() { let t = 0; ((course && course.units) || []).forEach(u => t += (u.lessons || []).length); return t; }
 function anyUnitComplete() { return ((course && course.units) || []).some((u, ui) => (u.lessons || []).length > 0 && (u.lessons || []).every((l, li) => progress.done && progress.done[lessonId(ui, li)])); }
 const STOP = new Set("de la que el en y los las un una para con por del al se su sus lo como mas más o e ni pero si no es son ser este esta estos estas entre sobre cuando cada muy sin ese esa hay han ha".split(" "));
 function tokenize(s) { return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(/[^a-z0-9]+/).filter(w => w.length >= 3 && !STOP.has(w)); }
+
+function loadReaderPrefs() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(READER_PREFS_KEY) || "{}");
+    if (Number.isFinite(saved.scale)) readerPrefs.scale = Math.max(.85, Math.min(1.35, saved.scale));
+    if (["paper", "night"].includes(saved.theme)) readerPrefs.theme = saved.theme;
+    if (["serif", "sans"].includes(saved.family)) readerPrefs.family = saved.family;
+    if (["fluid", "original"].includes(saved.layout)) readerPrefs.layout = saved.layout;
+    if (["visual", "text"].includes(saved.view)) readerPrefs.view = saved.view;
+  } catch {}
+}
+function saveReaderPrefs() { try { localStorage.setItem(READER_PREFS_KEY, JSON.stringify(readerPrefs)); } catch {} }
+function applyReaderPrefs() {
+  const shell = $("readerShell"); if (!shell) return;
+  shell.dataset.theme = readerPrefs.theme; shell.dataset.family = readerPrefs.family; shell.dataset.layout = readerPrefs.layout; shell.dataset.view = readerPrefs.view;
+  shell.style.setProperty("--reader-scale", readerPrefs.scale.toFixed(2));
+  $("readerFontValue").textContent = Math.round(readerPrefs.scale * 100) + "%";
+  $("readerFamilyLabel").textContent = readerPrefs.family === "serif" ? "Serif" : "Sans";
+  $("readerThemeLabel").textContent = readerPrefs.theme === "paper" ? "Noche" : "Papel";
+  $("readerThemeBtn").setAttribute("aria-label", readerPrefs.theme === "paper" ? "Activar modo noche" : "Activar modo papel");
+  $("readerVisualBtn").setAttribute("aria-pressed", String(readerPrefs.view === "visual"));
+  $("readerTextBtn").setAttribute("aria-pressed", String(readerPrefs.view === "text"));
+}
+function changeReaderPref(key, value) {
+  readerPrefs[key] = value; saveReaderPrefs(); applyReaderPrefs();
+  if (book) renderPage(curPage, { keepPosition: true, animate: false });
+}
+function setReaderFocus(on) {
+  const active = Boolean(on && $("panel-libro"));
+  document.body.classList.toggle("reader-focus-active", active);
+  const btn = $("readerFocusBtn"); if (!btn) return;
+  btn.setAttribute("aria-pressed", String(active));
+  $("readerFocusLabel").textContent = active ? "Salir de lectura" : "Lectura inmersiva";
+  if (active) setTimeout(() => $("pageContent")?.focus({ preventScroll: true }), 50);
+}
+async function resetReaderPdf() {
+  try { readerPdfRenderTask?.cancel(); } catch {}
+  readerPdfRenderTask = null; readerPdfLoading = null; readerPdfBookId = "";
+  try { await readerPdfDoc?.destroy(); } catch {}
+  readerPdfDoc = null;
+}
+async function ensureReaderPdf() {
+  if (!book?.id) throw new Error("No hay un libro visual seleccionado.");
+  if (readerPdfDoc && readerPdfBookId === book.id) return readerPdfDoc;
+  if (readerPdfLoading && readerPdfBookId === book.id) return readerPdfLoading;
+  await resetReaderPdf();
+  readerPdfBookId = book.id;
+  readerPdfLoading = (async () => {
+    const token = auth.currentUser ? await auth.currentUser.getIdToken() : "";
+    if (!token) throw new Error("Volvé a iniciar sesión para abrir la página visual.");
+    const task = pdfjsLib.getDocument({
+      url: `/api/book-pdf?id=${encodeURIComponent(book.id)}`,
+      httpHeaders: { Authorization: `Bearer ${token}` },
+      rangeChunkSize: 262144,
+      disableAutoFetch: true,
+      disableStream: true,
+      isEvalSupported: false,
+      cMapUrl: "/vendor/pdfjs/cmaps/",
+      cMapPacked: true,
+      iccUrl: "/vendor/pdfjs/iccs/",
+      standardFontDataUrl: "/vendor/pdfjs/standard_fonts/",
+      wasmUrl: "/vendor/pdfjs/wasm/",
+    });
+    const doc = await task.promise;
+    if (readerPdfBookId !== book.id) { await doc.destroy(); throw new Error("El libro cambió durante la carga."); }
+    readerPdfDoc = doc; readerPdfLoading = null;
+    return doc;
+  })().catch(error => { readerPdfLoading = null; throw error; });
+  return readerPdfLoading;
+}
+async function renderPdfPage(pageNumber) {
+  const frame = $("readerPdfFrame"), canvas = $("readerPdfCanvas"), loading = $("readerPdfLoading");
+  if (!frame || !canvas || readerPrefs.view !== "visual") return;
+  const renderId = ++readerPdfRenderId;
+  try {
+    loading.classList.remove("error", "hidden"); loading.innerHTML = `<div class="spinner"></div><p>Cargando la página visual original…</p>`;
+    canvas.classList.remove("ready");
+    const doc = await ensureReaderPdf(); if (renderId !== readerPdfRenderId) return;
+    const pdfPage = await doc.getPage(pageNumber); if (renderId !== readerPdfRenderId) return;
+    try { readerPdfRenderTask?.cancel(); } catch {}
+    const initial = pdfPage.getViewport({ scale: 1 });
+    const cssWidth = Math.max(260, Math.min((frame.clientWidth || 760) * readerPrefs.scale, 1180));
+    const cssScale = cssWidth / initial.width;
+    const pixelRatio = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const cssViewport = pdfPage.getViewport({ scale: cssScale });
+    const renderViewport = pdfPage.getViewport({ scale: cssScale * pixelRatio });
+    canvas.width = Math.floor(renderViewport.width); canvas.height = Math.floor(renderViewport.height);
+    canvas.style.width = Math.floor(cssViewport.width) + "px"; canvas.style.height = Math.floor(cssViewport.height) + "px";
+    canvas.setAttribute("aria-label", `Página visual original ${pageNumber}`);
+    readerPdfRenderTask = pdfPage.render({ canvasContext: canvas.getContext("2d", { alpha: false }), viewport: renderViewport });
+    await readerPdfRenderTask.promise; if (renderId !== readerPdfRenderId) return;
+    canvas.classList.add("ready"); loading.classList.add("hidden");
+  } catch (error) {
+    if (error?.name === "RenderingCancelledException" || renderId !== readerPdfRenderId) return;
+    loading.classList.add("error");
+    loading.innerHTML = `<p><b>No pude abrir la página visual.</b><br>${esc(error?.message || error)}<br><br>Podés seguir leyendo en la vista Lectura.</p>`;
+  }
+}
+function setupReaderControls() {
+  loadReaderPrefs(); applyReaderPrefs();
+  ["pgPrev", "pgPrevEdge", "pgPrevBottom"].forEach(id => $(id).onclick = () => renderPage(curPage - 1));
+  ["pgNext", "pgNextEdge", "pgNextBottom"].forEach(id => $(id).onclick = () => renderPage(curPage + 1));
+  $("pgInput").addEventListener("change", () => renderPage(parseInt($("pgInput").value) || 1));
+  $("readerFontDown").onclick = () => changeReaderPref("scale", Math.max(.85, +(readerPrefs.scale - .1).toFixed(2)));
+  $("readerFontUp").onclick = () => changeReaderPref("scale", Math.min(1.35, +(readerPrefs.scale + .1).toFixed(2)));
+  $("readerFamilyBtn").onclick = () => changeReaderPref("family", readerPrefs.family === "serif" ? "sans" : "serif");
+  $("readerVisualBtn").onclick = () => changeReaderPref("view", "visual");
+  $("readerTextBtn").onclick = () => changeReaderPref("view", "text");
+  $("readerThemeBtn").onclick = () => changeReaderPref("theme", readerPrefs.theme === "paper" ? "night" : "paper");
+  $("readerFocusBtn").onclick = () => setReaderFocus(!document.body.classList.contains("reader-focus-active"));
+
+  let touchX = 0, touchY = 0;
+  $("pageContent").addEventListener("touchstart", e => { const t = e.changedTouches[0]; touchX = t.clientX; touchY = t.clientY; }, { passive: true });
+  $("pageContent").addEventListener("touchend", e => { const t = e.changedTouches[0], dx = t.clientX - touchX, dy = t.clientY - touchY; if (Math.abs(dx) > 58 && Math.abs(dx) > Math.abs(dy) * 1.35) renderPage(curPage + (dx < 0 ? 1 : -1)); }, { passive: true });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && document.body.classList.contains("reader-focus-active")) { setReaderFocus(false); return; }
+    if (!book || !$("panel-libro").classList.contains("active") || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || "") || document.activeElement?.isContentEditable) return;
+    if (e.key === "ArrowLeft") { e.preventDefault(); renderPage(curPage - 1); }
+    if (e.key === "ArrowRight") { e.preventDefault(); renderPage(curPage + 1); }
+  });
+  let resizeTimer = null;
+  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (book && readerPrefs.view === "visual" && $("panel-libro").classList.contains("active")) renderPdfPage(curPage); }, 180); });
+}
 
 function playWelcome(user) {
   const el = $("welcomeAnim"); if (!el) return;
@@ -225,9 +354,7 @@ function initStudy(user) {
   sel.addEventListener("change", () => selectBook(sel.value));
   document.querySelectorAll(".tabs button").forEach(btn => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
   // reader
-  $("pgPrev").onclick = () => renderPage(curPage - 1);
-  $("pgNext").onclick = () => renderPage(curPage + 1);
-  $("pgInput").addEventListener("change", () => renderPage(parseInt($("pgInput").value) || 1));
+  setupReaderControls();
   $("searchBtn").onclick = doSearch; $("searchInput").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
   // chat (multi)
   $("chatSend").onclick = sendChat; $("chatInput").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } });
@@ -245,15 +372,20 @@ function initStudy(user) {
   selectBook(sel.value);
 }
 function switchTab(tab) {
+  if (tab !== "libro") setReaderFocus(false);
   document.querySelectorAll(".tabs button").forEach(b => { const active = b.dataset.tab === tab; b.classList.toggle("active", active); b.setAttribute("aria-current", active ? "page" : "false"); });
   document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
   $("panel-" + tab).classList.add("active");
 }
 
 async function selectBook(bookId) {
+  await resetReaderPdf();
   book = null; bookIndex = null; course = null; curLesson = null; pendingSel = ""; clearSelBanner();
   show("lessonView", false); show("courseHome", true);
   $("courseHome").innerHTML = ""; $("pageContent").textContent = "";
+  const selected = BOOKS.find(item => item.id === bookId);
+  $("readerBookTitle").textContent = selected?.title || "Preparando tu libro…";
+  $("readerBookMeta").textContent = "Cargando las páginas originales y tus preferencias de lectura.";
   await loadBookData(bookId);
   if (!book) return;
   refreshChatPicker();
@@ -281,10 +413,12 @@ async function loadBookData(bookId) {
     }
     if (m) { data.title = m.title || data.title; data.contentVersion = m.contentVersion || null; data.cacheVersion = metaVersion; }
     book = data;
+    $("readerBookTitle").textContent = book.title || "Libro activo";
+    $("readerBookMeta").textContent = `${book.pages.length} páginas originales · lectura fluida sin mezclar contenido entre páginas.`;
     $("bookLoadingTxt").textContent = "Preparando buscador…";
     bookIndex = buildIndex(book.pages);
     renderPage(1);
-  } catch (e) { $("pageContent").innerHTML = `<div class="empty">No se pudo cargar el libro: ${esc(e.message || e)}</div>`; }
+  } catch (e) { $("readerBookMeta").textContent = "No se pudo preparar el lector."; $("pageContent").innerHTML = `<div class="empty">No se pudo cargar el libro: ${esc(e.message || e)}</div>`; }
   show("bookLoading", false);
 }
 
@@ -326,13 +460,32 @@ function passagesForRange(pageStart, pageEnd, topicStr, k = 12) {
   return res.map(p => ({ page: p.page, printed: p.printed, text: p.text }));
 }
 
-function renderPage(n) {
+function renderPage(n, options = {}) {
   if (!book) return;
-  n = Math.max(1, Math.min(book.pages.length, n | 0)); curPage = n;
-  const p = book.pages[n - 1];
-  $("pgInput").value = n; $("pgTotal").textContent = book.pages.length;
-  $("pageContent").innerHTML = `<span class="pgnum">Página ${n}${p.printed ? " · impresa " + p.printed : ""}</span>\n` + esc(p.text || "(página en blanco)");
-  $("pageContent").scrollTop = 0;
+  const previousPage = curPage;
+  const model = getReaderPageModel(book, n, readerPrefs.layout); if (!model) return;
+  const { sourcePage: p, pageNumber, total, visibleText, percent } = model;
+  n = pageNumber; curPage = n;
+  const printed = p.printed ? ` · impresa ${esc(p.printed)}` : "";
+  const page = $("pageContent");
+
+  $("pgInput").value = n; $("pgInput").max = total; $("pgTotal").textContent = total;
+  $("readerProgressBar").style.width = percent.toFixed(2) + "%";
+  $("readerProgressText").textContent = `Página ${n} de ${total}`;
+  const progressEl = document.querySelector(".reader-progress");
+  progressEl.setAttribute("aria-valuemax", String(total)); progressEl.setAttribute("aria-valuenow", String(n));
+  ["pgPrev", "pgPrevEdge", "pgPrevBottom"].forEach(id => $(id).disabled = n <= 1);
+  ["pgNext", "pgNextEdge", "pgNextBottom"].forEach(id => $(id).disabled = n >= total);
+
+  page.innerHTML = `<header class="reader-page-top"><span class="reader-page-source">${esc(book.title || "AVICI · FUENTE ORIGINAL")}</span><span class="pgnum">Página ${n}${printed}</span></header><div class="reader-page-visual"><div class="reader-pdf-frame" id="readerPdfFrame"><canvas id="readerPdfCanvas" role="img"></canvas><div class="reader-pdf-loading" id="readerPdfLoading"><div class="spinner"></div><p>Cargando la página visual original…</p></div></div></div><div class="reader-page-text">${esc(visibleText)}</div><footer class="reader-page-bottom"><span>Contenido exclusivo de la página ${n}</span><img src="/assets/logo-avici.png" alt=""><span>${Math.round(percent)}% del libro</span></footer>`;
+  page.setAttribute("aria-label", `Página ${n} de ${total}${p.printed ? `, página impresa ${p.printed}` : ""}`);
+  page.classList.remove("page-enter-forward", "page-enter-back");
+  if (options.animate !== false && n !== previousPage) {
+    void page.offsetWidth;
+    page.classList.add(n > previousPage ? "page-enter-forward" : "page-enter-back");
+  }
+  if (readerPrefs.view === "visual") requestAnimationFrame(() => renderPdfPage(n));
+  if (!options.keepPosition && $("panel-libro").classList.contains("active")) requestAnimationFrame(() => page.scrollIntoView({ block: "start", behavior: "smooth" }));
 }
 window.goToPage = (n) => { switchTab("libro"); renderPage(n); };
 function doSearch() {
@@ -340,7 +493,7 @@ function doSearch() {
   if (!q || !bookIndex) { show(box, false); return; }
   const res = search(bookIndex, q, 12);
   if (!res.length) { box.innerHTML = `<div class="empty">Sin resultados para "${esc(q)}".</div>`; show(box, true); return; }
-  box.innerHTML = res.map(r => `<div class="sres" data-pg="${r.page}"><b>pág. ${r.page}</b> — ${esc(r.text.slice(0, 160))}…</div>`).join("");
+  box.innerHTML = res.map(r => `<div class="sres" data-pg="${r.page}"><b>pág. ${r.page}</b> — ${esc(fluidPageText(r.text).slice(0, 170))}…</div>`).join("");
   show(box, true);
   box.querySelectorAll(".sres").forEach(el => el.onclick = () => { renderPage(parseInt(el.dataset.pg)); show(box, false); });
 }

@@ -18,7 +18,7 @@ Una app web (PWA instalable) donde una estudiante entra con su Google, un admin 
 - 🌐 **"Mundo hoy"**: investigación web real (Wikipedia ES/EN en vivo) que **contrasta el libro con el conocimiento actual** (qué cambió, qué se moderniza, qué se discute) con fuentes enlazadas.
 - 🤖 **El Profe**: chat con un tutor IA experto, natural, que cita páginas. Soporta **chats múltiples** (crear/cambiar/borrar).
 - 🏆 **Gamificación**: XP, niveles, rachas y logros.
-- 📖 **Libro** como consulta secundaria (lector con búsqueda y navegación por página).
+- 📖 **Lector híbrido**: vista Visual del PDF original —incluye imágenes, tablas, diagramas, colores y composición— y vista Lectura adaptable, sin mezclar contenido entre páginas.
 - ✍️ **Notas** privadas + seleccionar texto → preguntar al bot o guardar nota.
 - 📲 **PWA** instalable en Android / iPhone / PC.
 
@@ -36,11 +36,15 @@ Navegador (PWA)
   ├─ Vercel Serverless Functions (Node)  → el "cerebro" seguro
   │     ├─ /api/chat      → DeepSeek: chat, currículum, lección, contraste
   │     ├─ /api/research  → Wikipedia (en vivo) + DeepSeek: sección "Mundo hoy"
-  │     └─ /api/models    → lista modelos de la cuenta DeepSeek
+  │     ├─ /api/models    → lista modelos de la cuenta DeepSeek
+  │     └─ /api/book-pdf  → proxy privado con autenticación y rangos HTTP
   │
   ├─ Firebase (Google)
   │     ├─ Authentication (Google)
   │     └─ Firestore: usuarios, aprobación, libros, cursos, lecciones, notas, progreso, chats
+  │
+  ├─ Vercel Blob privado
+  │     └─ PDF originales; solo se entregan a usuarias autenticadas y aprobadas
   │
   └─ DeepSeek API (v4-pro / v4-flash)  → el modelo de IA (key guardada SOLO en Vercel)
 ```
@@ -52,6 +56,7 @@ Navegador (PWA)
 ## 🧰 Stack
 
 - **Frontend:** HTML + CSS + JavaScript (módulos ES). Sin framework. PWA (manifest + service worker network-first).
+- **Render de libros:** PDF.js, con carga por rangos para no descargar cientos de MB antes de mostrar la primera página.
 - **Backend:** Vercel Serverless Functions (Node, ESM). Verificación de token con [`jose`](https://www.npmjs.com/package/jose).
 - **Auth + DB:** Firebase Authentication (Google) + Cloud Firestore.
 - **IA:** DeepSeek API (OpenAI-compatible) — `deepseek-v4-pro` (profundo) y `deepseek-v4-flash` (rápido, por defecto para tareas estructuradas).
@@ -68,19 +73,22 @@ pagina-avici/
 ├─ app.js                # lógica: auth, admin, curso, lector, chat, notas, juegos, gamificación
 ├─ api/
 │  ├─ _lib.js            # verificar ID token de Firebase + estado "aprobado"
+│  ├─ book-pdf.js        # entrega privada de los PDF originales por rangos
 │  ├─ chat.js            # DeepSeek: tareas chat | curriculum | lesson | contrast
 │  ├─ research.js        # "Mundo hoy": Wikipedia en vivo + contraste con DeepSeek
 │  └─ models.js          # listar modelos DeepSeek disponibles
 ├─ manifest.webmanifest  # PWA
 ├─ sw.js                 # service worker (network-first)
 ├─ assets/logo-avici.png # marca principal AF con transparencia real
+├─ reader-utils.js       # fidelidad y transformación del texto página por página
+├─ vendor/pdfjs/         # visor PDF y recursos locales
 ├─ icon-192.png / icon-512.png / apple-touch-icon.png
-├─ package.json          # dep: jose
+├─ package.json          # dependencias: jose + pdfjs-dist
 ├─ vercel.json           # maxDuration de las funciones
 └─ README.md
 ```
 
-> ⚠️ El **texto de los libros NO está en este repo** (derechos de autor). Se procesa aparte y se guarda **privado** en Firestore. Ver "Procesar libros".
+> ⚠️ Los **libros NO están en este repo público**. El texto procesado se guarda privado en Firestore y los PDF originales en Vercel Blob privado. Ver "Procesar libros".
 
 ---
 
@@ -90,6 +98,7 @@ pagina-avici/
 - **Admin:** `fundacionsocial@gimnasioemocionalmb.com` (aprueba/rechaza, importa libros, genera cursos).
 - **Reglas de Firestore:** cada quien lee lo suyo; los libros/cursos solo los ven aprobados; solo el admin escribe libros/cursos.
 - **API key de DeepSeek:** vive **solo** en Vercel (`DEEPSEEK_API_KEY`), nunca en el cliente ni en el repo. Las funciones verifican el ID token de Firebase y el estado aprobado antes de llamar a DeepSeek; la comprobación falla cerrada ante errores de red (protege acceso y gasto).
+- **PDF originales:** el navegador nunca recibe una URL pública. `/api/book-pdf` valida el ID token y el estado aprobado, y luego transmite únicamente los rangos solicitados por PDF.js.
 - El `firebaseConfig` que aparece en el código es **público por diseño** (es config de cliente, no es un secreto).
 
 ---
@@ -144,6 +153,9 @@ El Profe sí conserva contexto, usa recuperación sobre el libro y aprovecha cac
 - `DEEPSEEK_API_KEY` — **obligatoria** (la key de DeepSeek).
 - `DEEPSEEK_MODEL` — opcional (por defecto `deepseek-v4-pro`).
 - `DEEPSEEK_BASE_URL` — opcional (por defecto `https://api.deepseek.com`).
+- `BLOB_READ_WRITE_TOKEN` — token del almacén Blob privado vinculado al proyecto.
+- `BOOK_THIBODEAU_PDF_URL` — URL privada del PDF original de Thibodeau.
+- `BOOK_MAZARRASA_PDF_URL` — URL privada del PDF original de Mazarrasa.
 
 **Publicar cambios:** el repo está conectado a Vercel; cada `push` a `main` **despliega solo**.
 
@@ -167,11 +179,11 @@ O deploy manual inmediato: `vercel --prod --yes`.
 
 ## 📚 Procesar libros (pipeline, fuera del repo)
 
-Los PDF y su texto extraído viven **privados** en la carpeta local `avici-materiales/` (no se suben a GitHub). Con Python + PyMuPDF:
+Los PDF y su texto extraído viven **privados** en la carpeta local `avici-materiales/` (no se suben a GitHub). Los PDF originales de producción también se guardan en Vercel Blob privado. Con Python + PyMuPDF:
 
 - `extract.py` → genera `<libro>.pages.json` (texto por página, con nº de página) para importar en la app.
 
-Luego el admin sube esos `.pages.json` con el importador. El diseño del curso lo hace la IA a partir del índice del libro.
+Luego el admin sube esos `.pages.json` con el importador. El texto alimenta búsqueda, RAG y la vista Lectura; el PDF original alimenta la vista Visual. Ambos conservan exactamente el mismo número de página.
 
 ---
 
