@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   parsePubmedXml,
   pubmedTitleMatchCount,
+  curatedSearchPlan,
   rankPubmedSources,
   renderResearchAnswer,
   sanitizeSearchPlan,
@@ -19,6 +20,14 @@ test("las consultas biomédicas se limitan a conceptos y descartan planes débil
     ["allostasis", "physiological regulation", "physiology"],
   ]);
   assert.deepEqual(sanitizeSearchPlan({ queries: [["homeostasis"]] }), []);
+});
+
+test("los temas del curso usan rutas biomédicas estables", () => {
+  assert.deepEqual(curatedSearchPlan("Organización del Cuerpo y Homeostasia"), [
+    ["homeostasis", "organism", "physiology"],
+    ["homeostasis", "allostasis", "physiological regulation"],
+  ]);
+  assert.equal(curatedSearchPlan("Un tema completamente nuevo").length, 0);
 });
 
 test("PubMed se transforma en fuentes con resumen, fecha y tipo de evidencia", () => {

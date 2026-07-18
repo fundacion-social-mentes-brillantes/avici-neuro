@@ -159,6 +159,68 @@ function fallbackSearchPlan(topic) {
   return [translated.slice(0, 4)];
 }
 
+export function curatedSearchPlan(topic) {
+  const value = normalizeText(topic);
+  const has = (...terms) => terms.some(term => value.includes(term));
+  if (has("homeostasia", "homeostasis", "retroalimentacion")) return [
+    ["homeostasis", "organism", "physiology"],
+    ["homeostasis", "allostasis", "physiological regulation"],
+  ];
+  if (has("fractura", "reparacion osea")) return [
+    ["fracture healing", "bone repair", "orthopedics"],
+    ["bone regeneration", "fracture", "clinical medicine"],
+  ];
+  if (has("cicatrizacion", "reparacion histica")) return [
+    ["wound healing", "tissue repair", "physiology"],
+    ["tissue regeneration", "wound healing", "clinical medicine"],
+  ];
+  if (has("presion arterial", "hemodinamica")) return [
+    ["blood pressure regulation", "hemodynamics", "physiology"],
+    ["arterial pressure", "baroreflex", "cardiovascular physiology"],
+  ];
+  if (has("cardiaca", "corazon", "vasos sanguineos", "electrocardiograma")) return [
+    ["cardiac cycle", "electrocardiography", "physiology"],
+    ["cardiac anatomy", "blood vessels", "human anatomy"],
+  ];
+  if (has("respiratorio", "ventilacion", "intercambio gaseoso")) return [
+    ["gas exchange", "pulmonary physiology", "ventilation"],
+    ["respiratory system", "airways", "human anatomy"],
+  ];
+  if (has("urinario", "rinones", "miccion")) return [
+    ["urinary system", "renal physiology", "micturition"],
+    ["kidney function", "urine formation", "physiology"],
+  ];
+  if (has("reproductor")) return [
+    ["reproductive system", "human anatomy", "physiology"],
+    ["reproductive physiology", "sex organs", "clinical medicine"],
+  ];
+  if (has("digestivo")) return [
+    ["digestive system", "gastrointestinal anatomy", "physiology"],
+    ["gastrointestinal tract", "digestive physiology", "human anatomy"],
+  ];
+  if (has("hormona", "glandulas", "endocrino")) return [
+    ["hormone action", "endocrine physiology", "receptors"],
+    ["endocrine glands", "hormones", "human physiology"],
+  ];
+  if (has("nervioso", "neuro", "sentidos", "olfato", "vision", "oido")) return [
+    ["nervous system organization", "neuroanatomy", "physiology"],
+    ["sensory systems", "neuroscience", "human anatomy"],
+  ];
+  if (has("hueso", "oseo", "esqueleto", "articulaciones")) return [
+    ["skeletal system", "bone anatomy", "physiology"],
+    ["joint anatomy", "appendicular skeleton", "human anatomy"],
+  ];
+  if (has("tejido", "epitelial", "conectivo", "muscular")) return [
+    ["tissue classification", "histology", "human anatomy"],
+    ["tissue organization", "cell biology", "physiology"],
+  ];
+  if (has("quimica", "bases quimicas")) return [
+    ["cellular biochemistry", "biomolecules", "physiology"],
+    ["molecular organization", "cell biology", "human physiology"],
+  ];
+  return [];
+}
+
 function buildBookContext(passages) {
   return (Array.isArray(passages) ? passages : []).slice(0, 8).map(p => {
     const page = Number(p?.page) || 0;
@@ -397,17 +459,19 @@ export default async function handler(req, res) {
 
   const retrievedAt = new Date().toISOString();
   const bookContext = buildBookContext(passages);
-  let queries;
-  try {
-    const searchText = await callDeepSeek(key, buildSearchPlanMessages({ topic, objective, topics, bookContext }), 320, 12000);
-    queries = sanitizeSearchPlan(parseJsonObject(searchText));
-  } catch { queries = []; }
+  let queries = curatedSearchPlan(topic);
+  if (!queries.length) {
+    try {
+      const searchText = await callDeepSeek(key, buildSearchPlanMessages({ topic, objective, topics, bookContext }), 320, 12000);
+      queries = sanitizeSearchPlan(parseJsonObject(searchText));
+    } catch { queries = []; }
+  }
   if (!queries.length) queries = fallbackSearchPlan(topic);
 
   const sources = await findPubmedSources(queries).catch(() => []);
   if (!sources.length) {
     const empty = emptyResult("No encontré literatura de PubMed suficientemente relevante para este tema. Para no inventar, no genero un contraste.");
-    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v5" });
+    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v6" });
     return;
   }
 
@@ -422,10 +486,10 @@ export default async function handler(req, res) {
     const reason = status === "no_reliable_evidence" ? "Encontré artículos relacionados, pero ninguna afirmación superó la verificación de citas. Para no inventar, no genero un contraste." : "";
     const usedIds = citedSourceIds(result);
     const usedSources = sources.filter(source => usedIds.has(source.id));
-    res.status(200).json({ result, answer: renderResearchAnswer(result, reason), status, sources: publicSources(usedSources), queries, model: MODEL, retrievedAt, researchVersion: "biomed-v5" });
+    res.status(200).json({ result, answer: renderResearchAnswer(result, reason), status, sources: publicSources(usedSources), queries, model: MODEL, retrievedAt, researchVersion: "biomed-v6" });
   } catch (error) {
     console.warn("Mundo hoy: no se pudo validar el análisis", { name: error?.name, message: cleanText(error?.message, 180) });
     const empty = emptyResult("La evidencia se recuperó, pero no se pudo validar el análisis. Para no inventar, no genero un contraste.");
-    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v5", validationError: cleanText(error?.message, 180) });
+    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v6", validationError: cleanText(error?.message, 180) });
   }
 }
