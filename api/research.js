@@ -20,6 +20,12 @@ async function wiki(lang, q) {
   } catch { return []; }
 }
 
+function relevant(sources, topic) {
+  const toks = topic.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(/[^a-z0-9]+/).filter(w => w.length >= 4);
+  if (!toks.length) return sources;
+  return sources.filter(s => { const t = (s.title + " " + s.extract).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); return toks.some(w => t.includes(w)); });
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") { res.status(405).json({ error: "Método no permitido" }); return; }
   const key = process.env.DEEPSEEK_API_KEY;
@@ -32,7 +38,8 @@ export default async function handler(req, res) {
   if (!topic) { res.status(400).json({ error: "Falta el tema a investigar." }); return; }
 
   const [es, en] = await Promise.all([wiki("es", topic), wiki("en", topic)]);
-  const sources = [...es, ...en];
+  let sources = relevant([...es, ...en], topic);
+  if (!sources.length) sources = [...es, ...en];  // si el filtro deja vacío, usá lo que haya
   const webCtx = sources.length
     ? sources.map((s, i) => `FUENTE ${i + 1} [${s.lang}] (${s.title}):\n${s.extract}`).join("\n\n---\n\n")
     : "(no se encontraron fuentes web para este tema)";
