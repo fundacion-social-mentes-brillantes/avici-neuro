@@ -671,7 +671,7 @@ async function apiResearch(payload) {
   if (!r.ok) throw new Error(data.error || ("Error " + r.status));
   return data;
 }
-const RESEARCH_CACHE_VERSION = "biomed-v6";
+const RESEARCH_CACHE_VERSION = "biomed-v7";
 function researchSourceType(source) {
   const types = (source.publicationTypes || []).join(" ").toLowerCase();
   if (types.includes("guideline")) return "Guía";

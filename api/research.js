@@ -164,7 +164,7 @@ export function curatedSearchPlan(topic) {
   const has = (...terms) => terms.some(term => value.includes(term));
   if (has("homeostasia", "homeostasis", "retroalimentacion")) return [
     ["homeostasis", "organism", "physiology"],
-    ["homeostasis", "allostasis", "physiological regulation"],
+    ["physiological stability", "homeostasis", "brain"],
   ];
   if (has("fractura", "reparacion osea")) return [
     ["fracture healing", "bone repair", "orthopedics"],
@@ -471,7 +471,7 @@ export default async function handler(req, res) {
   const sources = await findPubmedSources(queries).catch(() => []);
   if (!sources.length) {
     const empty = emptyResult("No encontré literatura de PubMed suficientemente relevante para este tema. Para no inventar, no genero un contraste.");
-    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v6" });
+    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v7" });
     return;
   }
 
@@ -486,10 +486,10 @@ export default async function handler(req, res) {
     const reason = status === "no_reliable_evidence" ? "Encontré artículos relacionados, pero ninguna afirmación superó la verificación de citas. Para no inventar, no genero un contraste." : "";
     const usedIds = citedSourceIds(result);
     const usedSources = sources.filter(source => usedIds.has(source.id));
-    res.status(200).json({ result, answer: renderResearchAnswer(result, reason), status, sources: publicSources(usedSources), queries, model: MODEL, retrievedAt, researchVersion: "biomed-v6" });
+    res.status(200).json({ result, answer: renderResearchAnswer(result, reason), status, sources: publicSources(usedSources), queries, model: MODEL, retrievedAt, researchVersion: "biomed-v7" });
   } catch (error) {
     console.warn("Mundo hoy: no se pudo validar el análisis", { name: error?.name, message: cleanText(error?.message, 180) });
     const empty = emptyResult("La evidencia se recuperó, pero no se pudo validar el análisis. Para no inventar, no genero un contraste.");
-    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v6", validationError: cleanText(error?.message, 180) });
+    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v7", validationError: cleanText(error?.message, 180) });
   }
 }

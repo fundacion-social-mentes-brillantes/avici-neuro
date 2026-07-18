@@ -25,7 +25,7 @@ test("las consultas biomédicas se limitan a conceptos y descartan planes débil
 test("los temas del curso usan rutas biomédicas estables", () => {
   assert.deepEqual(curatedSearchPlan("Organización del Cuerpo y Homeostasia"), [
     ["homeostasis", "organism", "physiology"],
-    ["homeostasis", "allostasis", "physiological regulation"],
+    ["physiological stability", "homeostasis", "brain"],
   ]);
   assert.equal(curatedSearchPlan("Un tema completamente nuevo").length, 0);
 });
