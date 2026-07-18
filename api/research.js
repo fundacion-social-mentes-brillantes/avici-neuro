@@ -202,13 +202,13 @@ async function fetchPubmedArticles(ids, ranks) {
   return parsePubmedXml(await response.text(), ranks);
 }
 
-export function isPubmedSourceRelevant(source, queries, matchedQueryIndexes) {
+export function pubmedTitleMatchCount(source, queries, matchedQueryIndexes) {
   const title = normalizeText(source?.title);
-  if (!title) return false;
-  return (matchedQueryIndexes || []).some(queryIndex => {
+  if (!title) return 0;
+  return (matchedQueryIndexes || []).reduce((best, queryIndex) => {
     const concepts = (queries[queryIndex] || []).map(normalizeText).filter(Boolean);
-    return concepts.filter(concept => title.includes(concept)).length >= 2;
-  });
+    return Math.max(best, concepts.filter(concept => title.includes(concept)).length);
+  }, 0);
 }
 
 export async function findPubmedSources(queries) {
@@ -223,7 +223,9 @@ export async function findPubmedSources(queries) {
   }));
   const ids = [...ranks.keys()].slice(0, 10);
   const articles = await fetchPubmedArticles(ids, ranks).catch(() => []);
-  const relevant = articles.filter(source => isPubmedSourceRelevant(source, queries, matches.get(source.pmid)));
+  const scored = articles.map(source => ({ source, titleMatches: pubmedTitleMatchCount(source, queries, matches.get(source.pmid)) }));
+  const strict = scored.filter(item => item.titleMatches >= 2);
+  const relevant = (strict.length ? strict : scored.filter(item => item.titleMatches >= 1)).map(item => item.source);
   return rankPubmedSources(relevant);
 }
 
@@ -256,6 +258,7 @@ REGLAS INNEGOCIABLES:
 5. No afirmes que un término es menos común, obsoleto o reemplazado sin evidencia explícita.
 6. Las citas deben tener entre 6 y 28 palabras, sin puntos suspensivos ni traducción. El texto explicativo sí va en español.
 7. Devolvé SOLO JSON válido, sin Markdown ni comentarios.
+8. Ignorá artículos cuyo objeto de estudio no corresponda directamente al tema de la lección. Una coincidencia aislada de palabras como homeostasis, control, tejido o sistema no alcanza.
 
 FORMATO:
 {
@@ -359,6 +362,15 @@ function publicSources(sources) {
   return sources.map(({ id, title, url, database, journal, year, publicationTypes, pmid }) => ({ id, title, url, database, journal, year, publicationTypes, pmid }));
 }
 
+function citedSourceIds(result) {
+  const ids = new Set();
+  for (const group of [result.currentEvidence, result.changes, result.debates]) {
+    for (const claim of group) for (const id of claim.sourceIds || []) ids.add(id);
+  }
+  for (const id of result.takeaway?.sourceIds || []) ids.add(id);
+  return ids;
+}
+
 function emptyResult(reason) {
   const result = { bookSummary: [], currentEvidence: [], changes: [], debates: [], takeaway: null };
   return { result, answer: renderResearchAnswer(result, reason), status: "no_reliable_evidence" };
@@ -392,7 +404,7 @@ export default async function handler(req, res) {
   const sources = await findPubmedSources(queries).catch(() => []);
   if (!sources.length) {
     const empty = emptyResult("No encontré literatura de PubMed suficientemente relevante para este tema. Para no inventar, no genero un contraste.");
-    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v2" });
+    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v3" });
     return;
   }
 
@@ -405,9 +417,11 @@ export default async function handler(req, res) {
       ? (result.changes.length || result.debates.length ? "contrast_found" : "current_evidence_only")
       : "no_reliable_evidence";
     const reason = status === "no_reliable_evidence" ? "Encontré artículos relacionados, pero ninguna afirmación superó la verificación de citas. Para no inventar, no genero un contraste." : "";
-    res.status(200).json({ result, answer: renderResearchAnswer(result, reason), status, sources: publicSources(sources), queries, model: MODEL, retrievedAt, researchVersion: "biomed-v2" });
+    const usedIds = citedSourceIds(result);
+    const usedSources = sources.filter(source => usedIds.has(source.id));
+    res.status(200).json({ result, answer: renderResearchAnswer(result, reason), status, sources: publicSources(usedSources), queries, model: MODEL, retrievedAt, researchVersion: "biomed-v3" });
   } catch (error) {
     const empty = emptyResult("La evidencia se recuperó, pero no se pudo validar el análisis. Para no inventar, no genero un contraste.");
-    res.status(200).json({ ...empty, sources: publicSources(sources), queries, model: MODEL, retrievedAt, researchVersion: "biomed-v2", validationError: cleanText(error?.message, 180) });
+    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v3", validationError: cleanText(error?.message, 180) });
   }
 }

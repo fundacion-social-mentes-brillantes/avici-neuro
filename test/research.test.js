@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   parsePubmedXml,
-  isPubmedSourceRelevant,
+  pubmedTitleMatchCount,
   rankPubmedSources,
   renderResearchAnswer,
   sanitizeSearchPlan,
@@ -51,14 +51,14 @@ test("se priorizan revisiones y se eliminan artículos duplicados", () => {
   assert.equal(sources[0].database, "PubMed");
 });
 
-test("se excluyen artículos que usan homeostasis en otro contexto", () => {
+test("la relevancia distingue títulos centrales de coincidencias aisladas", () => {
   const queries = [
     ["homeostasis", "feedforward", "physiology"],
     ["homeostasis", "allostasis", "physiological regulation"],
   ];
-  assert.equal(isPubmedSourceRelevant({ title: "Homeostasis: The Central Organizing Principle of Physiology" }, queries, [0]), true);
-  assert.equal(isPubmedSourceRelevant({ title: "Homeostasis in the Gut Microbiota in Chronic Kidney Disease" }, queries, [0]), false);
-  assert.equal(isPubmedSourceRelevant({ title: "Clarifying homeostasis and allostasis in physiological regulation" }, queries, [1]), true);
+  assert.equal(pubmedTitleMatchCount({ title: "Homeostasis: The Central Organizing Principle of Physiology" }, queries, [0]), 2);
+  assert.equal(pubmedTitleMatchCount({ title: "Homeostasis in the Gut Microbiota in Chronic Kidney Disease" }, queries, [0]), 1);
+  assert.equal(pubmedTitleMatchCount({ title: "Clarifying homeostasis and allostasis in physiological regulation" }, queries, [1]), 3);
 });
 
 test("una afirmación moderna solo sobrevive si su cita existe literalmente", () => {
