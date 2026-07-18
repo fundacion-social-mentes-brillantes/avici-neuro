@@ -387,7 +387,7 @@ export function validateResearchResult(raw, passages, sources) {
     currentEvidence: collect(raw?.currentEvidence, 5, { source: true }),
     changes: collect(raw?.changes, 3, { book: true, source: true }),
     debates: collect(raw?.debates, 3, { book: true, source: true }),
-    takeaway: validateClaim(raw?.takeaway, context, {}),
+    takeaway: validateClaim(raw?.takeaway, context, { book: true, source: true }),
   };
 }
 
@@ -471,7 +471,7 @@ export default async function handler(req, res) {
   const sources = await findPubmedSources(queries).catch(() => []);
   if (!sources.length) {
     const empty = emptyResult("No encontré literatura de PubMed suficientemente relevante para este tema. Para no inventar, no genero un contraste.");
-    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v7" });
+    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v8" });
     return;
   }
 
@@ -486,10 +486,10 @@ export default async function handler(req, res) {
     const reason = status === "no_reliable_evidence" ? "Encontré artículos relacionados, pero ninguna afirmación superó la verificación de citas. Para no inventar, no genero un contraste." : "";
     const usedIds = citedSourceIds(result);
     const usedSources = sources.filter(source => usedIds.has(source.id));
-    res.status(200).json({ result, answer: renderResearchAnswer(result, reason), status, sources: publicSources(usedSources), queries, model: MODEL, retrievedAt, researchVersion: "biomed-v7" });
+    res.status(200).json({ result, answer: renderResearchAnswer(result, reason), status, sources: publicSources(usedSources), queries, model: MODEL, retrievedAt, researchVersion: "biomed-v8" });
   } catch (error) {
     console.warn("Mundo hoy: no se pudo validar el análisis", { name: error?.name, message: cleanText(error?.message, 180) });
     const empty = emptyResult("La evidencia se recuperó, pero no se pudo validar el análisis. Para no inventar, no genero un contraste.");
-    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v7", validationError: cleanText(error?.message, 180) });
+    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v8", validationError: cleanText(error?.message, 180) });
   }
 }

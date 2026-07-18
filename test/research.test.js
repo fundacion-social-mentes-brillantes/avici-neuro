@@ -88,12 +88,17 @@ test("una afirmación moderna solo sobrevive si su cita existe literalmente", ()
       sourceEvidence: [{ sourceId: 1, quote: "Anticipatory feedforward controls can minimize disturbances before a regulated variable changes significantly" }],
     }],
     debates: [],
+    takeaway: {
+      text: "El libro no contempla este avance.",
+      sourceEvidence: [{ sourceId: 1, quote: "Anticipatory feedforward controls can minimize disturbances before a regulated variable changes significantly" }],
+    },
   };
   const result = validateResearchResult(raw, passages, sources);
   assert.equal(result.bookSummary.length, 1);
   assert.equal(result.currentEvidence.length, 1);
   assert.deepEqual(result.currentEvidence[0].sourceIds, [1]);
   assert.equal(result.changes.length, 0);
+  assert.equal(result.takeaway, null);
 });
 
 test("si no hay cambio sustentado, el resultado lo declara sin fabricar debate", () => {
