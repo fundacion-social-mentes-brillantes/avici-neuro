@@ -223,7 +223,7 @@ function switchTab(tab) {
 async function selectBook(bookId) {
   book = null; bookIndex = null; course = null; chatHistory = [];
   show("lessonView", false); show("courseHome", true);
-  $("courseMap").innerHTML = ""; $("pageContent").textContent = "";
+  $("courseHome").innerHTML = ""; $("pageContent").textContent = "";
   await loadBookData(bookId);
   await loadProgress(bookId);
   await loadCourse(bookId);
