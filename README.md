@@ -11,6 +11,7 @@
 Una app web (PWA instalable) donde una estudiante entra con su Google, un admin la aprueba, y accede a un **curso completo generado por IA a partir de cada libro**:
 
 - 🧬 **Neural Study Theatre**: una interfaz clínica inmersiva, responsive y accesible, pensada como sala de control de estudio en vez de un dashboard genérico.
+- ✦ **Marca AF**: el logo fusiona la A de AVICI con una F oculta de Florencia, una curva neural y una línea de precisión quirúrgica.
 - 🎓 **Cursos** por libro: unidades → lecciones, ordenadas de lo básico a lo avanzado.
 - 📘 **Lecciones didácticas** (explicación + conceptos clave) que **citan la página exacta** del libro para verificar.
 - 🎮 **Juegos**: quiz de opción múltiple, "unir conceptos", flashcards.
@@ -72,6 +73,7 @@ pagina-avici/
 │  └─ models.js          # listar modelos DeepSeek disponibles
 ├─ manifest.webmanifest  # PWA
 ├─ sw.js                 # service worker (network-first)
+├─ assets/logo-avici.png # marca principal AF con transparencia real
 ├─ icon-192.png / icon-512.png / apple-touch-icon.png
 ├─ package.json          # dep: jose
 ├─ vercel.json           # maxDuration de las funciones

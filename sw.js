@@ -1,6 +1,6 @@
 /* Service Worker — AVICI PWA (network-first para tener siempre lo último) */
-const CACHE = "avici-v3-neural-theatre";
-const ASSETS = ["/", "/index.html", "/styles.css", "/app.js", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
+const CACHE = "avici-v4-florencia-mark";
+const ASSETS = ["/", "/index.html", "/styles.css", "/app.js", "/manifest.webmanifest", "/assets/logo-avici.png", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS).catch(() => {})).then(() => self.skipWaiting()));

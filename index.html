@@ -10,6 +10,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/png" href="/icon-192.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="preload" href="/assets/logo-avici.png" as="image" type="image/png">
   <link rel="stylesheet" href="/styles.css">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -25,7 +26,7 @@
 
   <div id="welcomeAnim" class="welcomeanim hidden" role="dialog" aria-label="Bienvenida a AVICI">
     <div class="wa-inner">
-      <div class="wa-mark" aria-hidden="true"><span>A</span></div>
+      <div class="wa-mark" aria-hidden="true"><img src="/assets/logo-avici.png" alt=""></div>
       <p class="wa-kicker">NEURAL THEATRE · SESSION READY</p>
       <h2 class="wa-title" id="waTitle">Hola, Avici</h2>
       <p class="wa-sub">Tu próxima sesión clínica está preparada.</p>
@@ -58,7 +59,7 @@
           <span class="neural-node node-two"></span>
           <span class="neural-node node-three"></span>
           <span class="neural-node node-four"></span>
-          <div class="core-mark"><small>NEURAL</small><strong>A</strong><small>ACTIVE</small></div>
+          <div class="core-mark"><img src="/assets/logo-avici.png" alt=""></div>
         </div>
         <div class="stage-readout"><i></i><span>Knowledge link stable</span><b>100%</b></div>
       </div>
@@ -120,7 +121,7 @@
 
     <section id="studyZone" class="workspace hidden" aria-label="Zona de estudio AVICI">
       <aside class="studybar">
-        <div class="study-brand"><span class="brand-glyph">A</span><div><b>AVICI</b><small>NEURAL THEATRE</small></div></div>
+        <div class="study-brand"><span class="brand-glyph"><img src="/assets/logo-avici.png" alt=""></span><div><b>AVICI</b><small>NEURAL THEATRE</small></div></div>
         <label class="book-control" for="bookSel"><span>ACTIVE SOURCE</span><select id="bookSel"></select></label>
         <nav class="tabs" aria-label="Secciones de estudio">
           <button data-tab="curso" class="active"><span class="nav-icon">⌁</span><span><b>Curso</b><small>Tu ruta clínica</small></span></button>
@@ -165,7 +166,7 @@
 
         <section class="panel chat-panel" id="panel-chat" aria-label="Profesor IA">
           <header class="chat-head">
-            <div class="prof-identity"><span class="prof-mark">A</span><div><p class="section-label">CLINICAL REASONING PARTNER</p><h2>El Profe</h2><p>Pregunta, conecta y profundiza con evidencia del libro.</p></div></div>
+            <div class="prof-identity"><span class="prof-mark"><img src="/assets/logo-avici.png" alt=""></span><div><p class="section-label">CLINICAL REASONING PARTNER</p><h2>El Profe</h2><p>Pregunta, conecta y profundiza con evidencia del libro.</p></div></div>
             <span class="chat-signal" id="chatSignal" data-state="ready">Memoria lista</span>
           </header>
           <div class="chatbar">
