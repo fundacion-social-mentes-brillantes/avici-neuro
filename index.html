@@ -284,11 +284,39 @@
   .lesson-item:active{transform:scale(.99)}
   .btn-mint{background-size:180% auto;transition:transform .15s,filter .15s,background-position .4s}
   .btn-mint:hover{background-position:right center}
+
+  /* ===== ANIMACIÓN DE BIENVENIDA ===== */
+  .welcomeanim{position:fixed;inset:0;z-index:400;display:grid;place-items:center;text-align:center;color:#fff;cursor:pointer;overflow:hidden;background:radial-gradient(circle at 50% 38%,#12c7b2,#08897c 62%,#053b35);animation:waIn .45s ease}
+  .welcomeanim.out{animation:waOut .7s ease forwards}
+  @keyframes waIn{from{opacity:0}to{opacity:1}}
+  @keyframes waOut{to{opacity:0;visibility:hidden}}
+  .wa-inner{position:relative;padding:20px;animation:waPop .8s cubic-bezier(.2,1.3,.4,1)}
+  @keyframes waPop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
+  .wa-orb{font-size:5rem;filter:drop-shadow(0 0 34px rgba(255,255,255,.65));animation:waFloat 2.4s ease-in-out infinite}
+  @keyframes waFloat{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-14px) rotate(4deg)}}
+  .wa-title{font-size:clamp(1.8rem,7vw,2.6rem);font-weight:900;margin:14px 0 4px;text-shadow:0 6px 24px rgba(0,0,0,.22)}
+  .wa-sub{font-size:1.05rem;opacity:.96}
+  .wa-bar{width:180px;height:5px;border-radius:999px;background:rgba(255,255,255,.28);margin:22px auto 8px;overflow:hidden}
+  .wa-bar span{display:block;height:100%;background:#fff;width:0;animation:waBar 2.4s linear forwards}
+  @keyframes waBar{to{width:100%}}
+  .wa-skip{font-size:.74rem;opacity:.6;letter-spacing:.5px}
+  .wa-spark{position:absolute;pointer-events:none;opacity:0;animation:waSpark 1.9s ease-in-out infinite}
+  @keyframes waSpark{0%{opacity:0;transform:scale(.4)}30%{opacity:1}100%{opacity:0;transform:scale(1.5) translateY(-22px)}}
 </style>
 </head>
 <body>
 
 <div class="floaties" id="floaties"></div>
+
+<div id="welcomeAnim" class="welcomeanim hidden">
+  <div class="wa-inner">
+    <div class="wa-orb">🧠</div>
+    <h2 class="wa-title" id="waTitle">¡Hola!</h2>
+    <p class="wa-sub">Bienvenida a tu mundo de estudio ✨</p>
+    <div class="wa-bar"><span></span></div>
+    <div class="wa-skip">tocá para entrar</div>
+  </div>
+</div>
 
 <div class="wrap">
   <div class="hero" id="heroBlock">

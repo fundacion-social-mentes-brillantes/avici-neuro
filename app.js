@@ -197,8 +197,23 @@ function anyUnitComplete() { return ((course && course.units) || []).some((u, ui
 const STOP = new Set("de la que el en y los las un una para con por del al se su sus lo como mas más o e ni pero si no es son ser este esta estos estas entre sobre cuando cada muy sin ese esa hay han ha".split(" "));
 function tokenize(s) { return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(/[^a-z0-9]+/).filter(w => w.length >= 3 && !STOP.has(w)); }
 
+function playWelcome(user) {
+  const el = $("welcomeAnim"); if (!el) return;
+  try { if (sessionStorage.getItem("welcomed")) return; sessionStorage.setItem("welcomed", "1"); } catch {}
+  const name = ((user.displayName || "").trim().split(" ")[0]) || "Avici";
+  $("waTitle").textContent = `¡Hola, ${name}! 👋`;
+  const inner = el.querySelector(".wa-inner");
+  const emo = ["✨", "⭐", "💫", "🩺", "🧠", "💉"];
+  for (let i = 0; i < 22; i++) { const s = document.createElement("span"); s.className = "wa-spark"; s.textContent = emo[i % emo.length]; s.style.left = Math.random() * 100 + "%"; s.style.top = Math.random() * 100 + "%"; s.style.fontSize = (0.8 + Math.random() * 1.6) + "rem"; s.style.animationDelay = (Math.random() * 1.3) + "s"; inner.appendChild(s); }
+  el.classList.remove("hidden", "out");
+  try { window.confetti && window.confetti(); } catch {}
+  const close = () => { el.classList.add("out"); setTimeout(() => { el.classList.add("hidden"); el.querySelectorAll(".wa-spark").forEach(x => x.remove()); }, 700); };
+  const t = setTimeout(close, 2800);
+  el.onclick = () => { clearTimeout(t); close(); };
+}
 function initStudy(user) {
   if (studyInit) { return; } studyInit = true;
+  playWelcome(user);
   const sel = $("bookSel"); sel.innerHTML = BOOKS.map(b => `<option value="${b.id}">${esc(b.title)}</option>`).join("");
   sel.addEventListener("change", () => selectBook(sel.value));
   document.querySelectorAll(".tabs button").forEach(btn => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
