@@ -23,7 +23,8 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
-  body{font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:linear-gradient(135deg,var(--bg1),var(--bg2) 55%,#e9d7ff);min-height:100vh;overflow-x:hidden;position:relative;padding-top:env(safe-area-inset-top)}
+  body{font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:linear-gradient(135deg,#d7fff4,#c9f0ff 40%,#e9d7ff 70%,#ffe6f3);background-size:200% 200%;animation:aurora 18s ease infinite;min-height:100vh;overflow-x:hidden;position:relative;padding-top:env(safe-area-inset-top)}
+  @keyframes aurora{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
   .floaties{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
   .floaties span{position:absolute;bottom:-60px;font-size:2rem;opacity:.25;animation:rise linear infinite}
   @keyframes rise{0%{transform:translateY(0) rotate(0deg);opacity:0}10%{opacity:.3}90%{opacity:.3}100%{transform:translateY(-115vh) rotate(360deg);opacity:0}}
@@ -247,6 +248,42 @@
   .matchbtn.wrong{background:#ffeaec;border-color:var(--bad)}
   .matchhead{font-size:.82rem;color:#8a9aa4;margin-bottom:6px;font-weight:700}
   .matchdone{text-align:center;background:#e4fff5;border:1px solid #b6ecd8;border-radius:12px;padding:14px;margin-top:12px;font-weight:700;color:var(--mint-dark)}
+
+  /* ===== INICIO MÁGICO ===== */
+  .hero{padding-top:14px}
+  .orb{position:relative;width:120px;height:120px;margin:0 auto 6px;display:grid;place-items:center}
+  .orb .brain{font-size:4.2rem;filter:drop-shadow(0 10px 22px rgba(15,185,166,.45));animation:bob 3s ease-in-out infinite;z-index:2}
+  .orb .ring{position:absolute;inset:6px;border-radius:50%;border:2px solid rgba(15,185,166,.35);animation:pulsering 3s ease-out infinite}
+  .orb .ring.r2{animation-delay:1.5s}
+  @keyframes pulsering{0%{transform:scale(.7);opacity:.9}100%{transform:scale(1.5);opacity:0}}
+  h1.magic{font-size:clamp(2rem,7vw,3.2rem);font-weight:900;letter-spacing:-.5px;margin:6px 0}
+  .grad{background:linear-gradient(90deg,#0fb9a6,#a06bff 50%,#ff5d8f);-webkit-background-clip:text;background-clip:text;color:transparent;background-size:200% auto;animation:shine 4s linear infinite}
+  @keyframes shine{to{background-position:200% center}}
+  .glass{background:rgba(255,255,255,.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.6);box-shadow:0 18px 50px rgba(13,43,62,.14)}
+  .welcome{border-radius:22px;padding:20px;margin-top:18px}
+  .wtiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .wtile{background:rgba(255,255,255,.7);border:1px solid rgba(205,238,230,.9);border-radius:16px;padding:14px 8px;text-align:center;transition:transform .2s}
+  .wtile:hover{transform:translateY(-4px)}
+  .wtile .wemoji{font-size:1.8rem;display:block;margin-bottom:6px}
+  .wtile b{display:block;font-size:.82rem;color:var(--ink)}
+  .wtile small{font-size:.68rem;color:#7a8f98}
+  .wtext{text-align:center;color:#3a5a6b;font-size:.96rem;margin-top:16px;line-height:1.5}
+  @media(max-width:560px){.wtiles{grid-template-columns:repeat(2,1fr)}}
+
+  /* ===== BARRA DE CHATS ===== */
+  .chatbar{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+  .chatsel{flex:1;min-width:0;padding:9px 10px;border-radius:10px;border:1px solid #cdeee6;background:#f2fffb;font-size:.85rem;font-weight:600;color:var(--ink)}
+  .iconbtn{flex:0 0 auto;width:38px;height:38px;border:none;border-radius:10px;background:#eef4f6;color:var(--mint-dark);font-size:1.1rem;font-weight:800;cursor:pointer;transition:.12s}
+  .iconbtn:hover{background:var(--mint);color:#fff}
+  .iconbtn.danger:hover{background:var(--bad)}
+  .chatbar .modeswitch{margin:0;flex:0 0 auto;background:#f2fffb;border:1px solid #cdeee6;border-radius:10px;padding:4px 8px;gap:6px}
+  .chatbar .modeswitch label{gap:3px;font-size:.9rem}
+
+  /* pulido general */
+  .card{border:1px solid rgba(255,255,255,.5)}
+  .lesson-item:active{transform:scale(.99)}
+  .btn-mint{background-size:180% auto;transition:transform .15s,filter .15s,background-position .4s}
+  .btn-mint:hover{background-position:right center}
 </style>
 </head>
 <body>
@@ -254,25 +291,20 @@
 <div class="floaties" id="floaties"></div>
 
 <div class="wrap">
-  <div class="hero">
-    <span class="badge">⚕️ AVICI · Zona de estudio</span>
-    <h1><span class="brain">🧠</span> La futura Dra. Avici</h1>
-    <p class="sub" id="heroSub">Tu quirófano digital para estudiar enfermería y llegar a neurocirujana. 💅🔬</p>
+  <div class="hero" id="heroBlock">
+    <div class="orb"><span class="brain">🧠</span><span class="ring"></span><span class="ring r2"></span></div>
+    <h1 class="magic">El mundo de <span class="grad">AVICI</span></h1>
+    <p class="sub">Tu universo mágico para dominar la enfermería y llegar a <b>neurocirujana</b>. ✨🧠</p>
   </div>
 
-  <div class="monitor" id="monitorCard">
-    <div class="label"><span>♥ MONITOR AVICI · 72 bpm</span><span id="pulse">ESTABLE</span></div>
-    <svg class="ecg" viewBox="0 0 500 70" preserveAspectRatio="none"><path d="M0,35 L120,35 L135,35 L145,10 L155,60 L165,20 L175,35 L300,35 L315,35 L325,12 L335,58 L345,22 L355,35 L500,35"/></svg>
-  </div>
-
-  <div class="card rx" id="recetaCard">
-    <h2>Receta médica 💊</h2>
-    <div class="clinic">Clínica del Cerebro · Consultorio de Sebastián 🩺</div>
-    <div class="diag"><b>Diagnóstico:</b> Amiga con cerebro de neurocirujana 🧠✨ que necesita entrar a su zona de estudio. Entrá con Google acá abajo. 😌</div>
-    <ul class="meds">
-      <li onclick="toggle(this)"><div class="pill">📚</div><div class="txt"><strong>Los libros que tenés</strong><span>Ya cargamos 2. Podés sumar más.</span></div><div class="check">✓</div></li>
-      <li onclick="toggle(this)"><div class="pill">🎯</div><div class="txt"><strong>Lo que querés estudiar</strong><span>El bot te ayuda con TODO, citando la página.</span></div><div class="check">✓</div></li>
-    </ul>
+  <div class="welcome glass" id="welcomeCard">
+    <div class="wtiles">
+      <div class="wtile"><span class="wemoji">📚</span><b>Tus 2 libros</b><small>hechos cursos</small></div>
+      <div class="wtile"><span class="wemoji">🤖</span><b>Tu Profe IA</b><small>experto, 24/7</small></div>
+      <div class="wtile"><span class="wemoji">🎮</span><b>Juegos</b><small>quiz · unir · cards</small></div>
+      <div class="wtile"><span class="wemoji">🏆</span><b>Subí de nivel</b><small>XP, rachas, logros</small></div>
+    </div>
+    <p class="wtext">Elegí un libro, seguí el curso, jugá y preguntale al Profe lo que quieras. Cada logro te acerca al quirófano. 🩺✨</p>
   </div>
 
   <!-- ACCESO -->
@@ -361,10 +393,15 @@
 
       <!-- PROFE (chat guía) -->
       <div class="panel" id="panel-chat">
-        <div class="modeswitch">Modo: <label><input type="radio" name="mode" value="flash" checked> ⚡ Flash (rápido)</label> <label><input type="radio" name="mode" value="pro"> 🧠 Pro (profundo)</label></div>
+        <div class="chatbar">
+          <select id="chatSel" class="chatsel" title="Tus chats"></select>
+          <button class="iconbtn" id="chatNew" title="Nuevo chat">＋</button>
+          <button class="iconbtn danger" id="chatDel" title="Borrar este chat">🗑</button>
+          <div class="modeswitch"><label><input type="radio" name="mode" value="flash" checked> ⚡</label><label><input type="radio" name="mode" value="pro"> 🧠</label></div>
+        </div>
         <div class="chatmsgs" id="chatMsgs"></div>
         <div class="chatinput">
-          <textarea id="chatInput" placeholder="Preguntale al profe sobre el libro… 📄"></textarea>
+          <textarea id="chatInput" placeholder="Preguntale al Profe lo que quieras… 📄"></textarea>
           <button class="btn btn-mint" id="chatSend" style="width:auto">Enviar</button>
         </div>
       </div>

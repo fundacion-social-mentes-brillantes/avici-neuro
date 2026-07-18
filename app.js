@@ -57,8 +57,8 @@ function md(text) {
 function wireCites(el) { el.querySelectorAll(".cite").forEach(b => b.onclick = () => goToPage(parseInt(b.dataset.pg))); }
 
 /* ---------------- AUTH ---------------- */
-let unsubUserDoc = null, unsubPending = null, unsubApproved = null, unsubNotes = null, unsubProgress = null;
-function cleanup() { [unsubUserDoc, unsubPending, unsubApproved, unsubNotes, unsubProgress].forEach(f => { try { f && f(); } catch {} }); unsubUserDoc = unsubPending = unsubApproved = unsubNotes = unsubProgress = null; }
+let unsubUserDoc = null, unsubPending = null, unsubApproved = null, unsubNotes = null, unsubProgress = null, unsubChats = null;
+function cleanup() { [unsubUserDoc, unsubPending, unsubApproved, unsubNotes, unsubProgress, unsubChats].forEach(f => { try { f && f(); } catch {} }); unsubUserDoc = unsubPending = unsubApproved = unsubNotes = unsubProgress = unsubChats = null; }
 function whoami(user, role) {
   const img = user.photoURL ? `<img src="${esc(user.photoURL)}" referrerpolicy="no-referrer" alt="">` : `<img src="/icon-192.png" alt="">`;
   return `<div class="whoami">${img}<div class="info"><b>${esc(user.displayName || "Sin nombre")}</b><span>${esc(user.email || "")}</span></div><span class="role">${role}</span></div>`;
@@ -83,7 +83,7 @@ async function ensureUserDoc(user) {
   }
   return ref;
 }
-const CARDS = ["monitorCard", "recetaCard"];
+const CARDS = ["welcomeCard"];
 const setLanding = (on) => CARDS.forEach(id => show(id, on));
 
 function renderByStatus(user, data) {
@@ -207,8 +207,12 @@ function initStudy(user) {
   $("pgNext").onclick = () => renderPage(curPage + 1);
   $("pgInput").addEventListener("change", () => renderPage(parseInt($("pgInput").value) || 1));
   $("searchBtn").onclick = doSearch; $("searchInput").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
-  // chat
+  // chat (multi)
   $("chatSend").onclick = sendChat; $("chatInput").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } });
+  $("chatSel") && ($("chatSel").onchange = () => loadChat($("chatSel").value));
+  $("chatNew") && ($("chatNew").onclick = newChat);
+  $("chatDel") && ($("chatDel").onclick = deleteChat);
+  startChats(user);
   // notes
   $("noteAdd").onclick = addNote; startNotes(user);
   // course
@@ -224,7 +228,7 @@ function switchTab(tab) {
 }
 
 async function selectBook(bookId) {
-  book = null; bookIndex = null; course = null; chatHistory = [];
+  book = null; bookIndex = null; course = null;
   show("lessonView", false); show("courseHome", true);
   $("courseHome").innerHTML = ""; $("pageContent").textContent = "";
   await loadBookData(bookId);
@@ -516,16 +520,52 @@ async function markDone(ui, li, score) {
   renderMap(book.id);
 }
 
-/* ---------------- CHAT (guía) ---------------- */
+/* ---------------- CHAT (multi-chat + caché) ---------------- */
+let curChatId = null, chats = [];
 function addMsg(role, html, cls = "") { const d = document.createElement("div"); d.className = "msg " + role + (cls ? " " + cls : ""); d.innerHTML = html; $("chatMsgs").appendChild(d); $("chatMsgs").scrollTop = $("chatMsgs").scrollHeight; wireCites(d); return d; }
+function renderChatMessages() {
+  const box = $("chatMsgs"); box.innerHTML = "";
+  if (!chatHistory.length) { box.innerHTML = `<div class="empty" style="padding:26px 16px">¡Hola! Soy <b>el Profe</b> 🩺✨<br>Preguntame lo que quieras del libro: un tema, una duda, "explicame esto fácil", lo que se te ocurra. 🧠</div>`; return; }
+  chatHistory.forEach(m => addMsg(m.role === "assistant" ? "bot" : "user", m.role === "assistant" ? md(m.content) : esc(m.content)));
+}
+function startChats(user) {
+  const col = collection(db, "users", user.uid, "chats");
+  unsubChats = onSnapshot(query(col, orderBy("updatedAt", "desc")), qs => {
+    chats = []; qs.forEach(d => chats.push({ id: d.id, ...d.data() }));
+    const selEl = $("chatSel"); if (!selEl) return;
+    selEl.innerHTML = chats.length ? chats.map(c => `<option value="${c.id}">${esc(c.title || "Chat")}</option>`).join("") : `<option value="">✨ Nuevo chat</option>`;
+    if (curChatId && chats.some(c => c.id === curChatId)) { selEl.value = curChatId; }
+    else if (chats.length) { curChatId = chats[0].id; selEl.value = curChatId; chatHistory = (chats[0].messages || []).slice(); renderChatMessages(); }
+    else { curChatId = null; chatHistory = []; renderChatMessages(); }
+  }, () => {});
+}
+function loadChat(id) { const c = chats.find(x => x.id === id); curChatId = id || null; chatHistory = c ? (c.messages || []).slice() : []; renderChatMessages(); }
+function newChat() { curChatId = null; chatHistory = []; renderChatMessages(); $("chatInput") && $("chatInput").focus(); toast("Nuevo chat ✏️"); }
+async function deleteChat() {
+  if (!curChatId) { chatHistory = []; renderChatMessages(); return; }
+  const id = curChatId; try { await deleteDoc(doc(db, "users", curUser.uid, "chats", id)); } catch {}
+  curChatId = null; chatHistory = []; renderChatMessages(); toast("Chat borrado 🗑");
+}
+async function persistChat() {
+  if (!curUser) return;
+  const title = ((chatHistory.find(m => m.role === "user") || {}).content || "Chat").replace(/^\[fragmento:[^\]]*\]\s*/, "").slice(0, 40) || "Chat";
+  const data = { title, bookId: book ? book.id : "", messages: chatHistory.slice(-40), updatedAt: serverTimestamp() };
+  try {
+    if (!curChatId) { const ref = await addDoc(collection(db, "users", curUser.uid, "chats"), { ...data, createdAt: serverTimestamp() }); curChatId = ref.id; }
+    else { await setDoc(doc(db, "users", curUser.uid, "chats", curChatId), data, { merge: true }); }
+  } catch {}
+}
 async function sendChat() {
   const q = $("chatInput").value.trim();
   if (!q && !pendingSel) return;
   if (!book) { toast("Elegí un libro."); return; }
-  const mode = (document.querySelector('input[name="mode"]:checked') || {}).value || "pro";
+  const mode = (document.querySelector('input[name="mode"]:checked') || {}).value || "flash";
   const selText = pendingSel; pendingSel = ""; clearSelBanner();
   addMsg("user", (selText ? `📌 <i>"${esc(selText.slice(0, 120))}"</i><br>` : "") + esc(q || "Explicame esto."));
   $("chatInput").value = "";
+  // caché para ahorrar tokens: preguntas sueltas (primer mensaje, sin selección)
+  const cacheKey = (!selText && chatHistory.length === 0) ? ("chatc|" + book.id + "|" + mode + "|" + q.toLowerCase()) : null;
+  if (cacheKey) { const hit = localStorage.getItem(cacheKey); if (hit) { addMsg("bot", md(hit)); chatHistory.push({ role: "user", content: q }, { role: "assistant", content: hit }); persistChat(); return; } }
   const thinking = addMsg("bot", `<span class="think dots">Pensando (${mode === "pro" ? "Pro 🧠" : "Flash ⚡"})</span>`, "think");
   try {
     const prevUser = chatHistory.filter(m => m.role === "user").slice(-1)[0];
@@ -536,6 +576,8 @@ async function sendChat() {
     const ans = data.answer || "(sin respuesta)"; addMsg("bot", md(ans));
     chatHistory.push({ role: "user", content: (selText ? `[fragmento: ${selText.slice(0, 300)}] ` : "") + (q || "Explicame esto.") });
     chatHistory.push({ role: "assistant", content: ans });
+    if (cacheKey) { try { localStorage.setItem(cacheKey, ans); } catch {} }
+    persistChat();
   } catch (e) { thinking.remove(); addMsg("bot", "⚠️ " + esc(e.message || e), "think"); }
 }
 
