@@ -12,9 +12,9 @@ Una app web (PWA instalable) donde una estudiante entra con su Google, un admin 
 
 - 🧬 **Neural Study Theatre**: una interfaz clínica inmersiva, responsive y accesible, pensada como sala de control de estudio en vez de un dashboard genérico.
 - ✦ **Marca AF**: el logo fusiona la A de AVICI con una F oculta de Florencia, una curva neural y una línea de precisión quirúrgica.
-- 🎓 **Cursos** por libro: unidades → lecciones, ordenadas de lo básico a lo avanzado.
+- 🎓 **Cursos auditados** por libro: Thibodeau cubre sus 34 capítulos y Mazarrasa sus 77 capítulos, con rangos exactos del PDF y una ruta plegable para PC/celular.
 - 📘 **Lecciones didácticas** (explicación + conceptos clave) que **citan la página exacta** del libro para verificar.
-- 🎮 **Juegos**: quiz de opción múltiple, "unir conceptos", flashcards.
+- 🎮 **Práctica activa**: quiz con niveles cognitivos y dominio al 80%, unir conceptos, flashcards con autoevaluación y un desafío aplicado por capítulo.
 - 🧬 **"Mundo hoy"**: busca literatura biomédica en PubMed y solo muestra afirmaciones que conservan una cita textual verificable; los cambios y debates requieren evidencia tanto del libro como de la fuente actual.
 - 🤖 **El Profe**: chat con un tutor IA experto, natural, que cita páginas. Soporta **chats múltiples** (crear/cambiar/borrar).
 - 🏆 **Gamificación**: XP, niveles, rachas y logros.
@@ -71,6 +71,8 @@ Navegador (PWA)
 pagina-avici/
 ├─ index.html            # estructura + estilos (inicio, auth, admin, zona de estudio)
 ├─ app.js                # lógica: auth, admin, curso, lector, chat, notas, juegos, gamificación
+├─ course-catalog.js     # rutas verificadas: 34 capítulos de Thibodeau + 77 de Mazarrasa
+├─ learning-utils.js     # contrato y validación estricta de lecciones/juegos
 ├─ api/
 │  ├─ _lib.js            # verificar ID token de Firebase + estado "aprobado"
 │  ├─ book-pdf.js        # entrega privada de los PDF originales por rangos
@@ -119,8 +121,8 @@ pagina-avici/
 
 ## 🤖 Cómo funciona la IA (y cómo ahorra tokens)
 
-1. **Currículum:** desde el índice del libro, DeepSeek diseña unidades → lecciones (una vez, se cachea).
-2. **Lección:** al abrirla, se recuperan los fragmentos relevantes (BM25) del rango de páginas y DeepSeek arma explicación + quiz + flashcards + conceptos (se cachea).
+1. **Currículum:** los dos libros incluidos usan una ruta versionada y verificada contra el índice visual del PDF; no dependen de que la IA adivine la estructura.
+2. **Lección:** al abrirla, se recuperan fragmentos del rango exacto del capítulo. DeepSeek arma explicación, objetivos, quiz, flashcards, conceptos y desafío; el servidor bloquea la respuesta si faltan citas, hay opciones ambiguas o los juegos están incompletos. Solo las lecciones validadas entran al caché.
 3. **Chat:** BM25 recupera 14 fragmentos diversificados por página y expande la consulta con la lección y la conversación reciente. DeepSeek recibe hasta 10 rondas de historial y responde citando páginas.
 4. **Mundo hoy:** DeepSeek traduce el tema a conceptos biomédicos → PubMed recupera literatura → DeepSeek propone el contraste → el servidor descarta cualquier afirmación cuya cita no exista literalmente en el libro o en el resumen. El resultado se renueva cada 3 días o manualmente.
 
@@ -129,7 +131,8 @@ pagina-avici/
 **Caché con invalidación:**
 
 - El libro se guarda en IndexedDB y se compara con su `contentVersion`; una importación nueva invalida automáticamente la copia vieja.
-- Currículo, lecciones y contrastes llevan la versión del libro que los originó, de modo que nunca se mezclan con una edición nueva.
+- Currículo, lecciones y contrastes llevan versiones independientes del libro y del motor pedagógico, de modo que nunca se mezclan con una edición o un contrato de evaluación anterior.
+- La ruta usa identificadores estables por capítulo (`th-c01`, `mz-c01`, etc.), para que reorganizar módulos no destruya el progreso.
 - Una pregunta inicial idéntica puede reutilizar una respuesta local durante 14 días. La clave incluye usuario, libro, versión y modo para evitar cruces o respuestas obsoletas.
 - DeepSeek reutiliza automáticamente prefijos de contexto y AVICI muestra el porcentaje de *cache hit* devuelto por la API. Las peticiones incluyen un `user_id` opaco para aislar el KV cache por estudiante.
 
@@ -173,7 +176,7 @@ O deploy manual inmediato: `vercel --prod --yes`.
 
 1. **Aprobar usuarias:** entrá como admin → panel "Solicitudes pendientes" → **Aprobar**.
 2. **Importar libros:** panel admin → "⚙️ Importar / actualizar libros" → subí los `*.pages.json` → **Importar a Firestore**.
-3. **Generar curso:** en la zona de estudio, elegí el libro → **"✨ Generar curso con IA"** (o "🔁 Regenerar").
+3. **Verificar curso:** al entrar, la ruta auditada aparece automáticamente con la insignia **"Ruta verificada"** y el contador 34/34 o 77/77.
 
 ---
 
@@ -189,7 +192,7 @@ Luego el admin sube esos `.pages.json` con el importador. El texto alimenta bús
 
 ## 🗺️ Roadmap (ideas a futuro)
 
-- Más juegos (verdadero/falso, completar espacios, casos clínicos).
+- Repetición espaciada entre sesiones y repaso automático de preguntas falladas.
 - Metas semanales / ranking.
 - Respuestas del bot en streaming.
 - Añadir guías clínicas oficiales y revisiones de organismos sanitarios a "Mundo hoy".

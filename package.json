@@ -6,7 +6,7 @@
   "description": "AVICI - plataforma de estudio con asistente IA (DeepSeek) especialista en los libros",
   "scripts": {
     "test": "node --test",
-    "check": "node --check app.js && node --check reader-utils.js && node --check sw.js && node --check api/chat.js && node --check api/research.js && node --check api/book-pdf.js && node --check api/_lib.js"
+    "check": "node --check app.js && node --check course-catalog.js && node --check learning-utils.js && node --check reader-utils.js && node --check sw.js && node --check api/chat.js && node --check api/research.js && node --check api/book-pdf.js && node --check api/_lib.js"
   },
   "dependencies": {
     "jose": "^5.9.6",

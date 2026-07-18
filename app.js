@@ -1,5 +1,7 @@
 // ===== AVICI — Curso interactivo por libro (auth + admin + curso + libro + bot + notas) =====
 import { fluidPageText, getReaderPageModel } from "./reader-utils.js";
+import { COURSE_ENGINE_VERSION, courseAudit, getCuratedCourse } from "./course-catalog.js";
+import { LESSON_ENGINE_VERSION, MASTERY_SCORE, lessonCacheIsCurrent, normalizeLessonData, shuffleCards } from "./learning-utils.js";
 import * as pdfjsLib from "./vendor/pdfjs/pdf.min.mjs";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
 import {
@@ -39,12 +41,21 @@ const toast = (m) => window._toast ? window._toast(m) : console.log(m);
 let isAdmin = false, curUser = null;
 
 async function idToken() { return auth.currentUser ? await auth.currentUser.getIdToken() : null; }
-async function apiChat(payload) {
+async function apiChat(payload, timeoutMs = 70000) {
   const tk = await idToken();
-  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + tk }, body: JSON.stringify(payload) });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || ("Error " + r.status));
-  return data;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + tk }, body: JSON.stringify(payload), signal: controller.signal });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || ("Error " + r.status));
+    return data;
+  } catch (error) {
+    if (error?.name === "AbortError") throw new Error("La lección tardó demasiado. Tocá reintentar: tu ruta y tu progreso siguen a salvo.");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /* ---------- markdown-lite + citas ---------- */
@@ -195,6 +206,7 @@ function idb() {
 /* ---------------- ESTUDIO ---------------- */
 let studyInit = false, book = null, bookIndex = null, curPage = 1, chatHistory = [], pendingSel = "";
 let course = null, progress = {}, curLesson = null;
+let openCourseUnits = new Set();
 const READER_PREFS_KEY = "avici-reader-preferences-v1";
 let readerPrefs = { scale: 1, theme: "paper", family: "serif", layout: "fluid", view: "visual" };
 let readerPdfDoc = null, readerPdfBookId = "", readerPdfLoading = null, readerPdfRenderTask = null, readerPdfRenderId = 0;
@@ -381,7 +393,7 @@ function switchTab(tab) {
 
 async function selectBook(bookId) {
   await resetReaderPdf();
-  book = null; bookIndex = null; course = null; curLesson = null; pendingSel = ""; clearSelBanner();
+  book = null; bookIndex = null; course = null; curLesson = null; openCourseUnits = new Set(); pendingSel = ""; clearSelBanner();
   show("lessonView", false); show("courseHome", true);
   $("courseHome").innerHTML = ""; $("pageContent").textContent = "";
   const selected = BOOKS.find(item => item.id === bookId);
@@ -512,6 +524,16 @@ function tocPassages() {
 async function loadCourse(bookId) {
   const home = $("courseHome"); home.innerHTML = `<div class="spinner"></div>`;
   try {
+    const curated = getCuratedCourse(bookId);
+    if (curated) {
+      const audit = courseAudit(curated);
+      if (!audit.complete) throw new Error(`La ruta auditada está incompleta (${audit.uniqueChapters}/${audit.expectedChapters} capítulos).`);
+      course = curated;
+      const firstPending = course.units.findIndex((unit, ui) => (unit.lessons || []).some((lesson, li) => !(progress.done || {})[lessonId(ui, li)]));
+      openCourseUnits = new Set([Math.max(0, firstPending)]);
+      renderMap(bookId);
+      return;
+    }
     const snap = await getDoc(doc(db, "books", bookId, "course", "main"));
     const cached = snap.exists() ? snap.data() : null;
     const cacheIsCurrent = cached && (!book?.contentVersion || cached.sourceVersion === book.contentVersion);
@@ -528,6 +550,22 @@ async function loadCourse(bookId) {
 async function generateCourse() {
   if (!book) { toast("Esperá a que cargue el libro."); return; }
   const gl = $("genLog"); const setg = (m) => { if (gl) gl.textContent = m; };
+  const curated = getCuratedCourse(book.id);
+  if (curated) {
+    course = curated;
+    try {
+      await setDoc(doc(db, "books", book.id, "course", "main"), {
+        data: curated,
+        courseVersion: COURSE_ENGINE_VERSION,
+        sourceVersion: book.contentVersion || null,
+        createdAt: serverTimestamp(),
+        by: curUser.email,
+      });
+    } catch {}
+    toast("Ruta auditada restaurada ✓");
+    renderMap(book.id);
+    return;
+  }
   setg("Leyendo el índice del libro…");
   try {
     const passages = tocPassages();
@@ -539,7 +577,7 @@ async function generateCourse() {
     course = c; toast("¡Curso generado! 🎓"); renderMap(book.id);
   } catch (e) { setg("❌ " + (e.message || e)); toast("No se pudo generar: " + (e.message || e)); }
 }
-function lessonId(ui, li) { return `u${ui}l${li}`; }
+function lessonId(ui, li) { return course?.units?.[ui]?.lessons?.[li]?.id || `u${ui}l${li}`; }
 function renderMap(bookId) {
   const home = $("courseHome");
   const units = (course && course.units) || [];
@@ -548,22 +586,35 @@ function renderMap(bookId) {
   units.forEach((u, ui) => (u.lessons || []).forEach((l, li) => { total++; if (done[lessonId(ui, li)]) doneCount++; }));
   const pct = total ? Math.round(doneCount / total * 100) : 0;
   const lvl = progress.level || 1, xp = progress.xp || 0, streak = progress.streak || 0;
-  let html = `<div class="courseHead"><h2>${esc(course.title || book.title)}</h2><div class="progbar"><div style="width:${pct}%"></div></div><div class="progtxt">${doneCount}/${total} lecciones · ${pct}% completado</div></div>`;
+  const audit = courseAudit(course);
+  let nextId = "";
+  units.some((unit, ui) => (unit.lessons || []).some((lesson, li) => {
+    const id = lessonId(ui, li);
+    if (!done[id]) { nextId = id; return true; }
+    return false;
+  }));
+  let html = `<div class="courseHead"><div class="course-kickers"><span>✓ Ruta verificada</span><span>${audit.uniqueChapters}/${audit.expectedChapters || audit.lessons} capítulos</span></div><h2>${esc(course.title || book.title)}</h2><p class="course-subtitle">${esc(course.subtitle || "Ruta de aprendizaje basada en la fuente original")}</p><div class="progbar"><div style="width:${pct}%"></div></div><div class="progtxt">${doneCount}/${total} lecciones dominadas · ${pct}% completado</div></div>`;
   html += `<div class="stats"><span>Nivel ${lvl}</span><span>${xp} XP</span><span>Racha ${streak} día${streak === 1 ? "" : "s"}</span></div>`;
   const bs = (progress.badges || []).map(b => BADGE[b]).filter(Boolean);
   if (bs.length) html += `<div class="badges">${bs.map(b => `<span class="badge2">${b.emoji} ${b.label}</span>`).join("")}</div>`;
-  if (isAdmin) html += `<button class="btn btn-ghost btn-sm" id="regenCourse" style="margin-bottom:12px">🔁 Regenerar curso</button>`;
   units.forEach((u, ui) => {
-    html += `<div class="unit"><div class="unit-h"><span class="unit-code">${String(ui + 1).padStart(2, "0")}</span><b>${esc(u.title)}</b></div><div class="lessons">`;
+    const unitDone = (u.lessons || []).filter((lesson, li) => done[lessonId(ui, li)]).length;
+    const isOpen = openCourseUnits.has(ui);
+    html += `<section class="unit ${isOpen ? "open" : "collapsed"}"><button type="button" class="unit-h unit-toggle" data-unit="${ui}" aria-expanded="${isOpen}"><span class="unit-code">${String(ui + 1).padStart(2, "0")}</span><span class="unit-title"><b>${esc(u.emoji || "")}&nbsp; ${esc(u.title)}</b><small>${unitDone}/${(u.lessons || []).length} capítulos</small></span><span class="unit-chevron" aria-hidden="true">⌄</span></button><div class="lessons" ${isOpen ? "" : "hidden"}>`;
     (u.lessons || []).forEach((l, li) => {
       const d = done[lessonId(ui, li)];
-      html += `<div class="lesson-item" data-u="${ui}" data-l="${li}"><span class="chk">${d ? "✓" : String(li + 1).padStart(2, "0")}</span><div class="li-txt"><b>${esc(l.title)}</b><span>${esc(l.objective || "")}</span></div></div>`;
+      const id = lessonId(ui, li);
+      html += `<button type="button" class="lesson-item ${id === nextId ? "next" : ""}" data-u="${ui}" data-l="${li}"><span class="chk">${d ? "✓" : String(l.chapter || li + 1).padStart(2, "0")}</span><span class="li-txt"><b>${esc(l.title)}</b><span>${esc(l.objective || "")}</span><small class="lesson-meta">PDF ${l.pageStart}–${l.pageEnd}${l.freshness === "revisar-hoy" ? " · Mundo hoy recomendado" : ""}</small></span>${id === nextId ? `<em class="next-label">SEGUIR</em>` : ""}</button>`;
     });
-    html += `</div></div>`;
+    html += `</div></section>`;
   });
   home.innerHTML = html;
   home.querySelectorAll(".lesson-item").forEach(el => el.onclick = () => openLesson(parseInt(el.dataset.u), parseInt(el.dataset.l)));
-  if (isAdmin && $("regenCourse")) $("regenCourse").onclick = () => { if (confirm("¿Regenerar el curso? Se reemplaza el actual.")) { $("courseHome").innerHTML = `<div class="coursegen"><div class="em">🎓</div><div id="genLog" class="genlog"></div></div>`; generateCourse(); } };
+  home.querySelectorAll(".unit-toggle").forEach(toggle => toggle.onclick = () => {
+    const ui = Number(toggle.dataset.unit);
+    if (openCourseUnits.has(ui)) openCourseUnits.delete(ui); else openCourseUnits.add(ui);
+    renderMap(bookId);
+  });
 }
 
 async function openLesson(ui, li) {
@@ -577,38 +628,48 @@ async function openLesson(ui, li) {
     let lesson = null;
     const cacheSnap = await getDoc(doc(db, "books", book.id, "lessons", lid));
     const cached = cacheSnap.exists() ? cacheSnap.data() : null;
-    if (cached && (!book.contentVersion || cached.sourceVersion === book.contentVersion)) lesson = cached.data;
+    if (lessonCacheIsCurrent(cached, book.contentVersion)) {
+      try { lesson = normalizeLessonData(cached.data); } catch { lesson = null; }
+    }
     if (!lesson) {
       const passages = passagesForRange(l.pageStart, l.pageEnd, (l.title + " " + (l.topics || []).join(" ")));
-      const data = await apiChat({ task: "lesson", bookTitle: book.title, passages, mode: "flash", meta: { title: l.title, objective: l.objective } });
-      lesson = data.result;
-      try { await setDoc(doc(db, "books", book.id, "lessons", lid), { data: lesson, sourceVersion: book.contentVersion || null, createdAt: serverTimestamp(), by: curUser.email }); } catch {}
+      if (passages.length < 4) throw new Error("No encontré suficientes fragmentos de este capítulo para crear una lección fiable.");
+      body.innerHTML = `<div class="lesson-loader"><div class="spinner"></div><b>Construyendo desde el capítulo ${esc(l.chapter || "")}</b><span>Después verifico citas, opciones y respuestas antes de mostrarla.</span></div>`;
+      const data = await apiChat({ task: "lesson", bookTitle: book.title, passages, mode: "flash", meta: { title: l.title, objective: l.objective, chapter: l.chapter, pageStart: l.pageStart, pageEnd: l.pageEnd, freshness: l.freshness } });
+      lesson = normalizeLessonData(data.result, { allowedPages: passages.map(passage => passage.page) });
+      try { await setDoc(doc(db, "books", book.id, "lessons", lid), { data: lesson, lessonVersion: LESSON_ENGINE_VERSION, sourceVersion: book.contentVersion || null, createdAt: serverTimestamp(), by: curUser.email }); } catch {}
     }
     curLesson.data = lesson; renderLessonSection("leccion");
-  } catch (e) { body.innerHTML = `<div class="empty">No se pudo generar la lección: ${esc(e.message)}</div>`; }
+  } catch (e) {
+    body.innerHTML = `<div class="lesson-error"><b>No voy a mostrarte una lección dudosa.</b><p>${esc(e.message || e)}</p><button class="btn btn-mint btn-sm" id="retryLesson">Reintentar generación verificada</button></div>`;
+    $("retryLesson").onclick = () => openLesson(ui, li);
+  }
 }
 function renderLessonSection(sec) {
   const d = curLesson.data || {}; const body = $("lessonBody");
   document.querySelectorAll("#lessonSecTabs button").forEach(b => b.classList.toggle("active", b.dataset.sec === sec));
   if (sec === "leccion") {
+    const goals = (d.learningObjectives || []).map(goal => `<li>${esc(goal)}</li>`).join("");
     const terms = (d.keyTerms || []).map(t => `<div class="term"><b>${esc(t.term)}</b>: ${esc(t.def)}</div>`).join("");
-    body.innerHTML = `<div class="lesson-content">${md(d.content || "(sin contenido)")}</div>` + (terms ? `<h4 class="sech">🔑 Conceptos clave</h4><div class="terms">${terms}</div>` : "") + `<div class="lessfoot"><button class="btn btn-mint btn-sm" id="lsQuiz">🎮 Hacer el quiz</button> <button class="btn btn-ghost btn-sm" id="lsAsk">🤖 Preguntarle al profe</button></div>`;
+    body.innerHTML = (goals ? `<aside class="lesson-goals"><b>Al terminar vas a poder</b><ol>${goals}</ol></aside>` : "") + `<div class="lesson-content">${md(d.content || "(sin contenido)")}</div>` + (terms ? `<h4 class="sech">🔑 Conceptos clave</h4><div class="terms">${terms}</div>` : "") + `<div class="lessfoot"><button class="btn btn-mint btn-sm" id="lsQuiz">🎮 Comprobar dominio</button> <button class="btn btn-ghost btn-sm" id="lsAsk">🤖 Preguntarle al profe</button></div>`;
     wireCites(body);
     $("lsQuiz").onclick = () => renderLessonSection("quiz");
     $("lsAsk").onclick = () => { switchTab("chat"); $("chatInput").value = "Sobre la lección \"" + curLesson.l.title + "\": "; $("chatInput").focus(); };
   } else if (sec === "quiz") { renderQuiz(d.quiz || []); }
   else if (sec === "unir") { renderMatch(d.keyTerms || []); }
   else if (sec === "flash") { renderFlash(d.flashcards || []); }
+  else if (sec === "desafio") { renderChallenge(d.challenge); }
   else if (sec === "mundo") { renderContrast(); }
 }
 function renderQuiz(quiz) {
   const body = $("lessonBody");
   if (!quiz.length) { body.innerHTML = `<div class="empty">Esta lección no trae quiz.</div>`; return; }
   let answered = 0, correct = 0;
-  body.innerHTML = `<div id="quizWrap"></div>`; const wrap = $("quizWrap");
+  body.innerHTML = `<div class="mastery-note"><b>Meta de dominio: ${MASTERY_SCORE}%</b><span>El quiz mezcla recuerdo, comprensión y aplicación. Cada respuesta incluye la página que la respalda.</span></div><div id="quizWrap"></div>`; const wrap = $("quizWrap");
   quiz.forEach((q, qi) => {
     const card = document.createElement("div"); card.className = "quizq";
-    card.innerHTML = `<div class="qq"><b>${qi + 1}.</b> ${esc(q.q)}</div>` + `<div class="opts">` + (q.options || []).map((o, oi) => `<button class="opt" data-oi="${oi}">${esc(o)}</button>`).join("") + `</div><div class="qexp hidden"></div>`;
+    const level = q.level === "aplicacion" ? "Aplicación" : q.level === "recuerdo" ? "Recuerdo" : "Comprensión";
+    card.innerHTML = `<div class="qlevel">${level}</div><div class="qq"><b>${qi + 1}.</b> ${esc(q.q)}</div>` + `<div class="opts">` + (q.options || []).map((o, oi) => `<button class="opt" data-oi="${oi}">${esc(o)}</button>`).join("") + `</div><div class="qexp hidden"></div>`;
     wrap.appendChild(card);
     card.querySelectorAll(".opt").forEach(btn => btn.onclick = () => {
       if (card.dataset.done) return; card.dataset.done = "1"; answered++;
@@ -623,23 +684,50 @@ async function finishQuiz(correct, total) {
   const pct = Math.round(correct / total * 100);
   const body = $("lessonBody");
   const res = document.createElement("div"); res.className = "quizres";
-  res.innerHTML = `<h3>${pct >= 60 ? "🎉 ¡Aprobaste!" : "💪 ¡Casi!"} ${correct}/${total} (${pct}%)</h3>` + (pct >= 60 ? "<p>Lección dominada. ¡Seguí así, doctora! 🧠</p>" : "<p>Repasá la lección y volvé a intentar.</p>") + `<div class="quizacts"><button class="btn btn-ghost btn-sm" id="qBack">Volver a la lección</button> <button class="btn btn-mint btn-sm" id="qMap">Al mapa del curso</button></div>`;
+  const mastered = pct >= MASTERY_SCORE;
+  res.innerHTML = `<h3>${mastered ? "🎉 Dominio demostrado" : "🧠 Todavía está creciendo"} · ${correct}/${total} (${pct}%)</h3>` + (mastered ? `<p>Superaste la meta del ${MASTERY_SCORE}%. La ruta registra esta lección como dominada.</p>` : `<p>La meta es ${MASTERY_SCORE}%. Revisá las explicaciones y probá otra vez: equivocarte acá también es estudiar.</p>`) + `<div class="quizacts"><button class="btn btn-ghost btn-sm" id="qBack">Repasar lección</button> <button class="btn btn-ghost btn-sm" id="qRetry">Reintentar quiz</button>${mastered ? ` <button class="btn btn-mint btn-sm" id="qMap">Seguir la ruta</button>` : ""}</div>`;
   body.appendChild(res); res.scrollIntoView({ behavior: "smooth" });
   $("qBack").onclick = () => renderLessonSection("leccion");
-  $("qMap").onclick = () => { show("lessonView", false); show("courseHome", true); };
-  if (pct >= 60) await markDone(curLesson.ui, curLesson.li, pct);
+  $("qRetry").onclick = () => renderLessonSection("quiz");
+  if (mastered) {
+    $("qMap").onclick = () => { show("lessonView", false); show("courseHome", true); renderMap(book.id); };
+    await markDone(curLesson.ui, curLesson.li, pct);
+  }
 }
 function renderFlash(cards) {
   const body = $("lessonBody");
   if (!cards.length) { body.innerHTML = `<div class="empty">Sin flashcards.</div>`; return; }
-  let i = 0;
+  let deck = shuffleCards(cards), i = 0, known = 0, review = [];
   const draw = () => {
-    body.innerHTML = `<div class="flashwrap"><div class="flashcard" id="fcard"><div class="fc-inner"><div class="fc-front">${esc(cards[i].front)}</div><div class="fc-back">${esc(cards[i].back)}</div></div></div><div class="flashnav"><button class="btn btn-ghost btn-sm" id="fPrev">◀</button><span>${i + 1}/${cards.length}</span><button class="btn btn-ghost btn-sm" id="fNext">▶</button></div><p class="fchint">Tocá la tarjeta para darla vuelta 🔄</p></div>`;
-    $("fcard").onclick = () => $("fcard").classList.toggle("flipped");
-    $("fPrev").onclick = () => { i = (i - 1 + cards.length) % cards.length; draw(); };
-    $("fNext").onclick = () => { i = (i + 1) % cards.length; draw(); };
+    if (i >= deck.length) {
+      body.innerHTML = `<div class="flash-summary"><span>🧠</span><h3>${known}/${deck.length} recordadas</h3><p>${review.length ? `Tenés ${review.length} para reforzar. Una vuelta corta sobre los errores fija mejor la memoria.` : "¡Ronda perfecta! Mezclalas de nuevo para comprobar que no fue por el orden."}</p><button class="btn btn-mint btn-sm" id="fAgain">${review.length ? "Repasar las difíciles" : "Mezclar otra vez"}</button></div>`;
+      $("fAgain").onclick = () => { deck = shuffleCards(review.length ? review : cards); i = 0; known = 0; review = []; draw(); };
+      return;
+    }
+    body.innerHTML = `<div class="flashwrap"><div class="flash-score"><span>${i + 1}/${deck.length}</span><span>${known} seguras</span><span>${review.length} por repasar</span></div><div class="flashcard" id="fcard"><div class="fc-inner"><div class="fc-front"><small>DECILO ANTES DE GIRAR</small>${esc(deck[i].front)}</div><div class="fc-back">${esc(deck[i].back)}</div></div></div><div class="flash-rate hidden" id="flashRate"><button class="btn btn-ghost btn-sm" id="fReview">↺ Repasar</button><button class="btn btn-mint btn-sm" id="fKnown">✓ La sabía</button></div><p class="fchint">Intentá responder en voz alta y después girá la tarjeta.</p></div>`;
+    $("fcard").onclick = () => { $("fcard").classList.add("flipped"); show("flashRate", true); };
+    $("fReview").onclick = () => { review.push(deck[i]); i++; draw(); };
+    $("fKnown").onclick = () => { known++; i++; draw(); };
   };
   draw();
+}
+
+function renderChallenge(challenge) {
+  const body = $("lessonBody");
+  if (!challenge?.scenario) { body.innerHTML = `<div class="empty">Esta lección todavía no trae un desafío fiable.</div>`; return; }
+  body.innerHTML = `<article class="challenge-card"><div class="challenge-tag">GUARDIA DE RAZONAMIENTO</div><h3>Decidí con lo que acabás de aprender</h3><p>${esc(challenge.scenario)}</p><div class="challenge-question">${esc(challenge.q)}</div><div class="opts">${(challenge.options || []).map((option, index) => `<button class="opt" data-oi="${index}">${esc(option)}</button>`).join("")}</div><div class="qexp hidden" id="challengeExplain"></div></article>`;
+  body.querySelectorAll(".opt").forEach(button => button.onclick = () => {
+    if (body.querySelector(".challenge-card").dataset.done) return;
+    body.querySelector(".challenge-card").dataset.done = "1";
+    const selected = Number(button.dataset.oi);
+    const ok = selected === challenge.answer;
+    button.classList.add(ok ? "ok" : "bad");
+    const right = body.querySelector(`.opt[data-oi="${challenge.answer}"]`);
+    if (right) right.classList.add("ok");
+    const explain = $("challengeExplain");
+    explain.innerHTML = `${ok ? "✅ Buena decisión. " : "🔍 Mirá la pista clave. "}${md(challenge.explain || "")}`;
+    show(explain, true); wireCites(explain);
+  });
 }
 function renderMatch(terms) {
   const body = $("lessonBody");

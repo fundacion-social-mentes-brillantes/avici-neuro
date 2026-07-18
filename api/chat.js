@@ -1,6 +1,7 @@
 // POST /api/chat — Motor IA del curso (proxy seguro a DeepSeek).
 // task: 'chat' | 'curriculum' | 'lesson' | 'contrast'
 import { verifyUser, isApproved, readBody } from "./_lib.js";
+import { LessonValidationError, normalizeLessonData } from "../learning-utils.js";
 
 const AR = 'estudiante de enfermería argentina 🇦🇷 (Avici) que sueña con ser neurocirujana. Hablá en español rioplatense, cercano, motivador y con humor cuando cae bien, pero riguroso.';
 const MAX_HISTORY_MESSAGES = 20;
@@ -33,10 +34,19 @@ Reglas: cubrí TODO el libro; 5 a 9 unidades; cada unidad 3 a 8 lecciones; títu
   }
   if (task === "lesson") {
     return { json: true, messages: [{ role: "system", content:
-`Sos un profesor genial y didáctico. Creá una LECCIÓN interactiva y entretenida sobre "${meta.title}" (objetivo: ${meta.objective || ""}) basándote SOLO en los fragmentos del libro "${bookTitle}" (citá la página así (pág. N), nunca inventes páginas). Para una ${AR}
+`Sos un profesor universitario excepcional y un diseñador de evaluación en ciencias de la salud. Creá una LECCIÓN interactiva sobre "${meta.title}" (capítulo ${meta.chapter || ""}; objetivo: ${meta.objective || ""}) basándote EXCLUSIVAMENTE en los fragmentos recuperados del libro "${bookTitle}".
+
+REGLAS DE FIABILIDAD:
+- Cada afirmación central y cada explicación de respuesta debe citar una de las páginas que aparece en los fragmentos, exactamente como (pág. N). Nunca inventes ni conviertas la numeración.
+- Si los fragmentos no alcanzan, no completes con conocimiento general: enseñá solo lo demostrable en ellos.
+- Las cuatro opciones de cada pregunta deben ser distintas y debe existir una sola mejor respuesta.
+- El quiz debe comprobar tres niveles: recuerdo, comprensión y aplicación. El caso final puede ser clínico, comunitario o de investigación según el capítulo.
+- El material del libro puede ser antiguo. No lo presentes como recomendación clínica vigente; para eso existe la sección "Mundo hoy".
+
+Está dirigida a una ${AR}
 Devolvé SOLO JSON válido con esta forma exacta:
-{"content":"explicación en MARKDOWN: intro motivadora, desarrollo con analogías y ejemplos clínicos, negritas **así**, listas, y citas (pág. N). Terminá con '🎯 Para acordarte:'","keyTerms":[{"term":"...","def":"..."}],"quiz":[{"q":"...","options":["...","...","...","..."],"answer":0,"explain":"por qué, con (pág. N)"}],"flashcards":[{"front":"pregunta o concepto","back":"respuesta breve"}]}
-Incluí 4-6 preguntas de quiz (answer = índice 0-3 de la correcta; IMPORTANTE: variá la posición de la correcta entre 0,1,2 y 3, que NO siempre sea la misma), 6-8 flashcards, 5-8 términos clave. Si algo no está en los fragmentos, no lo inventes. NADA fuera del JSON.` },
+{"learningObjectives":["acción observable 1","acción observable 2","acción observable 3"],"content":"explicación en MARKDOWN de 700-1100 palabras: mapa mental inicial, desarrollo por mecanismos, analogía útil, error frecuente y cierre '🎯 Para acordarte:', siempre con citas (pág. N)","keyTerms":[{"term":"...","def":"..."}],"quiz":[{"q":"...","options":["...","...","...","..."],"answer":0,"level":"recuerdo|comprension|aplicacion","explain":"por qué la correcta lo es y la pista para descartar las demás, con (pág. N)"}],"flashcards":[{"front":"pregunta de recuperación activa","back":"respuesta breve y precisa"}],"challenge":{"scenario":"caso contextualizado de al menos 80 caracteres","q":"decisión o razonamiento","options":["...","...","...","..."],"answer":0,"level":"aplicacion","explain":"razonamiento con (pág. N)"}}
+Incluí exactamente 6-8 preguntas de quiz, al menos una de recuerdo y dos de aplicación; 8-10 flashcards; 6-9 términos clave. Variá la posición correcta entre 0, 1, 2 y 3. NADA fuera del JSON.` },
       { role: "user", content: "FRAGMENTOS DEL LIBRO (con su página):\n" + ctx }] };
   }
   if (task === "contrast") {
@@ -94,13 +104,17 @@ export default async function handler(req, res) {
   const baseUrl = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com";
   const model = mode === "flash" ? "deepseek-v4-flash" : (process.env.DEEPSEEK_MODEL || "deepseek-v4-pro");
   const payload = { model, messages: built.messages, temperature: task === "lesson" || task === "curriculum" ? 0.4 : 0.5, max_tokens: (task === "curriculum" || task === "lesson") ? 8000 : 2500, user_id: user.uid };
-  if (built.json) payload.response_format = { type: "json_object" };
+  if (built.json) {
+    payload.response_format = { type: "json_object" };
+    payload.thinking = { type: "disabled" };
+  }
 
   try {
     const r = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(65000),
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) { res.status(502).json({ error: "DeepSeek: " + (data?.error?.message || JSON.stringify(data).slice(0, 300)) }); return; }
@@ -110,6 +124,15 @@ export default async function handler(req, res) {
       try { parsed = JSON.parse(content); }
       catch { const m = content.match(/\{[\s\S]*\}/); if (m) { try { parsed = JSON.parse(m[0]); } catch {} } }
       if (!parsed) { res.status(502).json({ error: "El modelo no devolvió JSON válido.", raw: content.slice(0, 900), finish: data?.choices?.[0]?.finish_reason || null, contentLen: content.length, reasoningLen: (data?.choices?.[0]?.message?.reasoning_content || "").length }); return; }
+      if (task === "lesson") {
+        try {
+          parsed = normalizeLessonData(parsed, { allowedPages: (body.passages || []).map(passage => passage.page) });
+        } catch (error) {
+          const detail = error instanceof LessonValidationError ? error.issues.join("; ") : String(error?.message || error);
+          res.status(502).json({ error: "La IA respondió, pero la lección no pasó la auditoría: " + detail.slice(0, 700) });
+          return;
+        }
+      }
       res.status(200).json({ result: parsed, model, usage: data?.usage || null });
     } else {
       res.status(200).json({ answer: content || "(sin respuesta)", model, usage: data?.usage || null });
