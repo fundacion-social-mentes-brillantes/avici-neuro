@@ -549,3 +549,4 @@ document.addEventListener("click", (e) => { const b = e.target.closest("#lessonS
 window.__api = apiChat;
 window.__models = async () => { const tk = await idToken(); const r = await fetch("/api/models", { headers: { Authorization: "Bearer " + tk } }); return { status: r.status, body: await r.json().catch(() => ({})) }; };
 window.__research = apiResearch;
+window.__rawchat = async (payload) => { const tk = await idToken(); const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + tk }, body: JSON.stringify(payload) }); return { status: r.status, body: await r.json().catch(() => ({})) }; };

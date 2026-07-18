@@ -82,7 +82,7 @@ export default async function handler(req, res) {
       let parsed = null;
       try { parsed = JSON.parse(content); }
       catch { const m = content.match(/\{[\s\S]*\}/); if (m) { try { parsed = JSON.parse(m[0]); } catch {} } }
-      if (!parsed) { res.status(502).json({ error: "El modelo no devolvió JSON válido.", raw: content.slice(0, 400) }); return; }
+      if (!parsed) { res.status(502).json({ error: "El modelo no devolvió JSON válido.", raw: content.slice(0, 900), finish: data?.choices?.[0]?.finish_reason || null, contentLen: content.length, reasoningLen: (data?.choices?.[0]?.message?.reasoning_content || "").length }); return; }
       res.status(200).json({ result: parsed, model, usage: data?.usage || null });
     } else {
       res.status(200).json({ answer: content || "(sin respuesta)", model, usage: data?.usage || null });
