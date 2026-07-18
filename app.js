@@ -191,6 +191,9 @@ function idb() {
 /* ---------------- ESTUDIO ---------------- */
 let studyInit = false, book = null, bookIndex = null, curPage = 1, chatHistory = [], pendingSel = "";
 let course = null, progress = {}, curLesson = null;
+const BADGE = { primera:{emoji:"🎓",label:"Primera lección"}, cinco:{emoji:"⭐",label:"5 lecciones"}, perfecto:{emoji:"💯",label:"Quiz perfecto"}, racha3:{emoji:"🔥",label:"Racha de 3 días"}, unidad:{emoji:"🏅",label:"Unidad completa"}, curso:{emoji:"👑",label:"¡Curso completo!"} };
+function totalLessons() { let t = 0; ((course && course.units) || []).forEach(u => t += (u.lessons || []).length); return t; }
+function anyUnitComplete() { return ((course && course.units) || []).some((u, ui) => (u.lessons || []).length > 0 && (u.lessons || []).every((l, li) => progress.done && progress.done[lessonId(ui, li)])); }
 const STOP = new Set("de la que el en y los las un una para con por del al se su sus lo como mas más o e ni pero si no es son ser este esta estos estas entre sobre cuando cada muy sin ese esa hay han ha".split(" "));
 function tokenize(s) { return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").split(/[^a-z0-9]+/).filter(w => w.length >= 3 && !STOP.has(w)); }
 
@@ -342,7 +345,11 @@ function renderMap(bookId) {
   let total = 0, doneCount = 0;
   units.forEach((u, ui) => (u.lessons || []).forEach((l, li) => { total++; if (done[lessonId(ui, li)]) doneCount++; }));
   const pct = total ? Math.round(doneCount / total * 100) : 0;
+  const lvl = progress.level || 1, xp = progress.xp || 0, streak = progress.streak || 0;
   let html = `<div class="courseHead"><h2>🎓 ${esc(course.title || book.title)}</h2><div class="progbar"><div style="width:${pct}%"></div></div><div class="progtxt">${doneCount}/${total} lecciones · ${pct}%</div></div>`;
+  html += `<div class="stats"><span>🏆 Nivel ${lvl}</span><span>✨ ${xp} XP</span><span>🔥 ${streak} día${streak === 1 ? "" : "s"}</span></div>`;
+  const bs = (progress.badges || []).map(b => BADGE[b]).filter(Boolean);
+  if (bs.length) html += `<div class="badges">${bs.map(b => `<span class="badge2">${b.emoji} ${b.label}</span>`).join("")}</div>`;
   if (isAdmin) html += `<button class="btn btn-ghost btn-sm" id="regenCourse" style="margin-bottom:12px">🔁 Regenerar curso</button>`;
   units.forEach((u, ui) => {
     html += `<div class="unit"><div class="unit-h">${u.emoji || "📚"} <b>${esc(u.title)}</b></div><div class="lessons">`;
@@ -387,6 +394,7 @@ function renderLessonSection(sec) {
     $("lsQuiz").onclick = () => renderLessonSection("quiz");
     $("lsAsk").onclick = () => { switchTab("chat"); $("chatInput").value = "Sobre la lección \"" + curLesson.l.title + "\": "; $("chatInput").focus(); };
   } else if (sec === "quiz") { renderQuiz(d.quiz || []); }
+  else if (sec === "unir") { renderMatch(d.keyTerms || []); }
   else if (sec === "flash") { renderFlash(d.flashcards || []); }
   else if (sec === "mundo") { renderContrast(); }
 }
@@ -430,6 +438,29 @@ function renderFlash(cards) {
   };
   draw();
 }
+function renderMatch(terms) {
+  const body = $("lessonBody");
+  const items = (terms || []).filter(t => t && t.term && t.def).slice(0, 6);
+  if (items.length < 2) { body.innerHTML = `<div class="empty">Esta lección no tiene suficientes conceptos para el juego de unir.</div>`; return; }
+  const defs = items.map((t, i) => ({ i, def: t.def }));
+  for (let i = defs.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[defs[i], defs[j]] = [defs[j], defs[i]]; }
+  body.innerHTML = `<p class="matchhead">Uní cada concepto con su definición 🔗</p><div class="matchwrap"><div class="matchcol" id="mTerms"></div><div class="matchcol" id="mDefs"></div></div><div id="mMsg"></div>`;
+  const tc = $("mTerms"), dc = $("mDefs");
+  items.forEach((t, i) => { const b = document.createElement("button"); b.className = "matchbtn"; b.textContent = t.term; b.dataset.i = i; tc.appendChild(b); });
+  defs.forEach(d => { const b = document.createElement("button"); b.className = "matchbtn"; b.textContent = d.def; b.dataset.i = d.i; dc.appendChild(b); });
+  let selTerm = null, matched = 0;
+  tc.querySelectorAll(".matchbtn").forEach(b => b.onclick = () => { if (b.classList.contains("matched")) return; tc.querySelectorAll(".matchbtn").forEach(x => x.classList.remove("sel")); b.classList.add("sel"); selTerm = b; });
+  dc.querySelectorAll(".matchbtn").forEach(b => b.onclick = () => {
+    if (b.classList.contains("matched") || !selTerm) return;
+    if (b.dataset.i === selTerm.dataset.i) {
+      b.classList.add("matched"); selTerm.classList.add("matched"); selTerm.classList.remove("sel"); selTerm = null; matched++;
+      if (matched === items.length) $("mMsg").innerHTML = `<div class="matchdone">🎉 ¡Todo unido! Sos una genia. Seguí con el quiz o la siguiente lección. 🧠</div>`;
+    } else {
+      const t = selTerm; b.classList.add("wrong"); t.classList.add("wrong");
+      setTimeout(() => { b.classList.remove("wrong"); t.classList.remove("wrong", "sel"); }, 600); selTerm = null;
+    }
+  });
+}
 async function apiResearch(payload) {
   const tk = await idToken();
   const r = await fetch("/api/research", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + tk }, body: JSON.stringify(payload) });
@@ -464,9 +495,25 @@ async function loadProgress(bookId) {
 }
 async function markDone(ui, li, score) {
   const id = lessonId(ui, li);
+  const beforeLevel = progress.level || 1;
   progress.done = progress.done || {}; progress.done[id] = true;
-  progress.scores = progress.scores || {}; progress.scores[id] = score;
-  try { await setDoc(doc(db, "users", curUser.uid, "progress", book.id), { done: progress.done, scores: progress.scores, updatedAt: serverTimestamp() }, { merge: true }); } catch {}
+  progress.scores = progress.scores || {}; progress.scores[id] = Math.max(progress.scores && progress.scores[id] || 0, score);
+  progress.awarded = progress.awarded || {};
+  const firstTime = !progress.awarded[id];
+  if (firstTime) { progress.xp = (progress.xp || 0) + score; progress.awarded[id] = true; }
+  progress.level = Math.floor((progress.xp || 0) / 100) + 1;
+  const today = new Date().toISOString().slice(0, 10);
+  const yest = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  if (progress.lastStudy === today) { /* mismo día */ } else if (progress.lastStudy === yest) progress.streak = (progress.streak || 0) + 1; else progress.streak = 1;
+  progress.lastStudy = today;
+  progress.badges = progress.badges || [];
+  const add = (b) => { if (!progress.badges.includes(b)) progress.badges.push(b); };
+  const dc = Object.keys(progress.done).length;
+  add("primera"); if (dc >= 5) add("cinco"); if (score >= 100) add("perfecto"); if ((progress.streak || 0) >= 3) add("racha3"); if (anyUnitComplete()) add("unidad"); if (totalLessons() && dc >= totalLessons()) add("curso");
+  try { await setDoc(doc(db, "users", curUser.uid, "progress", book.id), { done: progress.done, scores: progress.scores, awarded: progress.awarded, xp: progress.xp || 0, level: progress.level, streak: progress.streak || 0, lastStudy: progress.lastStudy, badges: progress.badges, updatedAt: serverTimestamp() }, { merge: true }); } catch {}
+  if (firstTime) toast(`+${score} XP ✨`);
+  if ((progress.level || 1) > beforeLevel) setTimeout(() => toast(`🏆 ¡Subiste a nivel ${progress.level}!`), 900);
+  renderMap(book.id);
 }
 
 /* ---------------- CHAT (guía) ---------------- */
@@ -481,7 +528,9 @@ async function sendChat() {
   $("chatInput").value = "";
   const thinking = addMsg("bot", `<span class="think dots">Pensando (${mode === "pro" ? "Pro 🧠" : "Flash ⚡"})</span>`, "think");
   try {
-    const passages = search(bookIndex, (q + " " + selText + " " + (curLesson ? curLesson.l.title : "")).trim(), 8).map(p => ({ page: p.page, printed: p.printed, text: p.text }));
+    const prevUser = chatHistory.filter(m => m.role === "user").slice(-1)[0];
+    const qExpanded = (q + " " + selText + " " + (curLesson ? curLesson.l.title + " " + (curLesson.l.topics || []).join(" ") : "") + " " + (prevUser ? prevUser.content : "")).trim();
+    const passages = search(bookIndex, qExpanded, 14).map(p => ({ page: p.page, printed: p.printed, text: p.text }));
     const data = await apiChat({ task: "chat", bookTitle: book.title, passages, question: q, selectedText: selText, history: chatHistory.slice(-8), mode });
     thinking.remove();
     const ans = data.answer || "(sin respuesta)"; addMsg("bot", md(ans));

@@ -231,6 +231,22 @@
   .sources{margin-top:16px;background:#f2fffb;border:1px solid #cdeee6;border-radius:12px;padding:12px 14px;font-size:.86rem;display:grid;gap:6px}
   .sources a{color:var(--mint-dark);text-decoration:none;font-weight:600}
   .sources a:hover{text-decoration:underline}
+  /* gamificación */
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 10px}
+  .stats span{background:#eef7f5;color:var(--mint-dark);font-weight:800;font-size:.82rem;padding:6px 12px;border-radius:999px}
+  .badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .badge2{background:linear-gradient(135deg,#fff7d6,#ffe9a8);border:1px solid #ffdf7a;color:#8a6d1a;font-weight:700;font-size:.76rem;padding:4px 10px;border-radius:999px}
+  .levelup{background:#e4fff5;border:1px solid #b6ecd8;border-radius:12px;padding:10px 14px;margin-top:10px;font-weight:700;color:var(--mint-dark);text-align:center}
+  /* juego unir */
+  .matchwrap{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .matchcol{display:grid;gap:8px}
+  .matchbtn{text-align:left;border:1px solid #cdeee6;background:#fff;padding:10px 12px;border-radius:10px;cursor:pointer;font-size:.88rem;transition:.12s}
+  .matchbtn:hover{border-color:var(--mint)}
+  .matchbtn.sel{background:var(--mint);color:#fff;border-color:var(--mint)}
+  .matchbtn.matched{background:#e4fff5;border-color:var(--ok);color:#0a7a56;cursor:default;opacity:.7}
+  .matchbtn.wrong{background:#ffeaec;border-color:var(--bad)}
+  .matchhead{font-size:.82rem;color:#8a9aa4;margin-bottom:6px;font-weight:700}
+  .matchdone{text-align:center;background:#e4fff5;border:1px solid #b6ecd8;border-radius:12px;padding:14px;margin-top:12px;font-weight:700;color:var(--mint-dark)}
 </style>
 </head>
 <body>
@@ -323,6 +339,7 @@
           <div id="lessonSecTabs" class="sectabs">
             <button data-sec="leccion" class="active">📘 Lección</button>
             <button data-sec="quiz">🎮 Quiz</button>
+            <button data-sec="unir">🔗 Unir</button>
             <button data-sec="flash">🃏 Flashcards</button>
             <button data-sec="mundo">🌐 Mundo hoy</button>
           </div>
