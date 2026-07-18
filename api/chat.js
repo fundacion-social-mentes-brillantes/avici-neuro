@@ -66,7 +66,7 @@ export default async function handler(req, res) {
 
   const baseUrl = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com";
   const model = mode === "flash" ? "deepseek-v4-flash" : (process.env.DEEPSEEK_MODEL || "deepseek-v4-pro");
-  const payload = { model, messages: built.messages, temperature: task === "lesson" || task === "curriculum" ? 0.4 : 0.5, max_tokens: 4000 };
+  const payload = { model, messages: built.messages, temperature: task === "lesson" || task === "curriculum" ? 0.4 : 0.5, max_tokens: (task === "curriculum" || task === "lesson") ? 8000 : 2500 };
   if (built.json) payload.response_format = { type: "json_object" };
 
   try {
