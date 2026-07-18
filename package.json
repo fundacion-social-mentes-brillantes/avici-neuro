@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "description": "AVICI - plataforma de estudio con asistente IA (DeepSeek) especialista en los libros",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check app.js && node --check api/chat.js && node --check api/research.js && node --check api/_lib.js"
+  },
   "dependencies": {
     "jose": "^5.9.6"
   }

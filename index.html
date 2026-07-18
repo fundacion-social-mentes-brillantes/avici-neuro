@@ -1,482 +1,242 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>🧠 AVICI — Zona de estudio</title>
-
-<link rel="manifest" href="/manifest.webmanifest">
-<meta name="theme-color" content="#0fb9a6">
-<link rel="icon" type="image/png" href="/icon-192.png">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="AVICI">
-<meta name="description" content="El quirófano digital de la futura Dra. Avici. Estudiá tus libros con un asistente IA especialista.">
-
-<style>
-  :root{
-    --mint:#0fb9a6; --mint-dark:#08897c; --ink:#0d2b3e; --paper:#fffdf6;
-    --pink:#ff5d8f; --yellow:#ffd23f; --bg1:#d7fff4; --bg2:#c9f0ff;
-    --ok:#1eb980; --warn:#f0a020; --bad:#e35d6a; --line:#dfece9;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%}
-  body{font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:linear-gradient(135deg,#d7fff4,#c9f0ff 40%,#e9d7ff 70%,#ffe6f3);background-size:200% 200%;animation:aurora 18s ease infinite;min-height:100vh;overflow-x:hidden;position:relative;padding-top:env(safe-area-inset-top)}
-  @keyframes aurora{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-  .floaties{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
-  .floaties span{position:absolute;bottom:-60px;font-size:2rem;opacity:.25;animation:rise linear infinite}
-  @keyframes rise{0%{transform:translateY(0) rotate(0deg);opacity:0}10%{opacity:.3}90%{opacity:.3}100%{transform:translateY(-115vh) rotate(360deg);opacity:0}}
-  .wrap{position:relative;z-index:2;max-width:1050px;margin:0 auto;padding:28px 16px 70px}
-
-  .hero{text-align:center;margin-bottom:20px}
-  .badge{display:inline-block;background:var(--pink);color:#fff;font-weight:800;padding:6px 15px;border-radius:999px;font-size:.78rem;letter-spacing:.5px;text-transform:uppercase;box-shadow:0 6px 18px rgba(255,93,143,.4);animation:wiggle 2.6s ease-in-out infinite}
-  @keyframes wiggle{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
-  h1{font-size:clamp(1.6rem,5vw,2.6rem);line-height:1.1;margin:14px 0 6px;font-weight:900}
-  h1 .brain{display:inline-block;animation:bob 2s ease-in-out infinite}
-  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
-  .sub{font-size:1.02rem;color:#3a5a6b;max-width:520px;margin:0 auto}
-
-  .monitor{background:#06222d;border-radius:16px;padding:14px 16px;margin:20px 0;box-shadow:0 10px 30px rgba(6,34,45,.35);overflow:hidden}
-  .monitor .label{color:#61ffd6;font-size:.72rem;letter-spacing:2px;font-weight:700;display:flex;justify-content:space-between}
-  .ecg{width:100%;height:64px;display:block}
-  .ecg path{fill:none;stroke:#61ffd6;stroke-width:2.5;stroke-dasharray:1000;stroke-dashoffset:1000;animation:draw 2.4s linear infinite;filter:drop-shadow(0 0 4px #61ffd6)}
-  @keyframes draw{to{stroke-dashoffset:0}}
-
-  .card{background:var(--paper);border-radius:18px;padding:24px 22px;box-shadow:0 14px 40px rgba(13,43,62,.15);margin-top:20px}
-  .rx{border:2px dashed var(--mint);position:relative}
-  .rx::before{content:"℞";position:absolute;top:-18px;left:22px;background:var(--mint);color:#fff;font-size:1.5rem;font-weight:900;width:46px;height:46px;border-radius:12px;display:grid;place-items:center;box-shadow:0 6px 16px rgba(15,185,166,.5)}
-  .rx h2{margin:8px 0 4px;font-size:1.25rem}
-  .rx .clinic{font-size:.8rem;color:#8a9aa4;margin-bottom:16px}
-  .diag{background:#fff4f8;border-left:4px solid var(--pink);padding:12px 14px;border-radius:10px;margin:14px 0;font-size:.96rem}
-  .diag b{color:var(--pink)}
-  .rx h3{margin:18px 0 10px;font-size:1.02rem;color:var(--mint-dark)}
-  ul.meds{list-style:none;display:grid;gap:10px}
-  ul.meds li{display:flex;gap:12px;align-items:flex-start;background:#f2fffb;border:1px solid #cdeee6;border-radius:12px;padding:12px;cursor:pointer;user-select:none}
-  ul.meds li .pill{flex:0 0 auto;font-size:1.5rem;width:42px;height:42px;border-radius:12px;background:#fff;display:grid;place-items:center;box-shadow:inset 0 0 0 2px #e0f3ee}
-  ul.meds li .txt strong{display:block;font-size:.98rem}
-  ul.meds li .txt span{font-size:.84rem;color:#5c7480}
-  ul.meds li .check{margin-left:auto;width:26px;height:26px;border-radius:50%;border:2px solid var(--mint);display:grid;place-items:center;color:#fff;font-weight:900}
-  ul.meds li.done{background:#e4fff5}ul.meds li.done .check{background:var(--mint)}ul.meds li.done .txt strong{text-decoration:line-through;color:#8a9aa4}
-  .note{margin-top:18px;background:linear-gradient(135deg,#fff7d6,#ffe9a8);border-radius:14px;padding:14px 16px;font-size:.94rem;border:1px solid #ffdf7a}
-  .note b{color:#b8860b}
-
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;width:100%;border:none;cursor:pointer;font-weight:800;font-size:1.02rem;padding:15px;border-radius:14px;transition:transform .15s,filter .15s}
-  .btn:active{transform:translateY(1px)}
-  .btn-mint{background:linear-gradient(135deg,var(--mint),var(--mint-dark));color:#fff;box-shadow:0 12px 28px rgba(8,137,124,.4)}
-  .btn-mint:hover{transform:translateY(-2px);filter:brightness(1.06)}
-  .btn-google{background:#fff;color:#3c4043;border:1px solid #dadce0;box-shadow:0 6px 18px rgba(0,0,0,.12)}
-  .btn-ghost{background:#eef4f6;color:#3a5a6b;box-shadow:none}
-  .btn-sm{width:auto;padding:8px 14px;font-size:.85rem;border-radius:10px}
-  .btn-ok{background:var(--ok);color:#fff}.btn-bad{background:var(--bad);color:#fff}
-  .gicon{width:20px;height:20px;flex:0 0 auto}
-
-  .access h2{font-size:1.2rem;margin-bottom:6px;display:flex;align-items:center;gap:8px}
-  .access .lead{color:#5c7480;font-size:.94rem;margin-bottom:16px}
-  .statebox{border-radius:14px;padding:18px;margin:12px 0;text-align:center}
-  .statebox .em{font-size:2.6rem;display:block;margin-bottom:8px}
-  .statebox h3{margin-bottom:6px}
-  .statebox p{font-size:.94rem;color:#5c7480}
-  .st-pending{background:#fff6e6;border:1px solid #ffe0a3}
-  .st-rejected{background:#ffeaec;border:1px solid #f5c2c7}
-  .whoami{display:flex;align-items:center;gap:12px;background:#f2fffb;border:1px solid #cdeee6;border-radius:12px;padding:10px 14px;margin-bottom:14px}
-  .whoami img{width:38px;height:38px;border-radius:50%;flex:0 0 auto;background:#dbeee9}
-  .whoami .info{line-height:1.2;overflow:hidden;flex:1;min-width:0}
-  .whoami .info b{display:block;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .whoami .info span{font-size:.78rem;color:#8a9aa4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
-  .whoami .role{flex:0 0 auto;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:4px 9px;border-radius:999px;background:var(--mint);color:#fff}
-
-  .admin h3{font-size:1.02rem;margin:16px 0 10px;color:var(--mint-dark);display:flex;align-items:center;gap:8px}
-  .admin .count{background:var(--pink);color:#fff;font-size:.7rem;font-weight:800;border-radius:999px;padding:2px 9px}
-  .ulist{display:grid;gap:10px}
-  .urow{display:flex;align-items:center;gap:12px;background:#f7fbfc;border:1px solid #e2eef1;border-radius:12px;padding:10px 12px}
-  .urow img{width:36px;height:36px;border-radius:50%;flex:0 0 auto;background:#dbeee9}
-  .urow .u{line-height:1.2;overflow:hidden;flex:1;min-width:0}
-  .urow .u b{display:block;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .urow .u span{font-size:.76rem;color:#8a9aa4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
-  .urow .acts{display:flex;gap:6px;flex:0 0 auto}
-  .pill-status{font-size:.66rem;font-weight:800;text-transform:uppercase;padding:3px 8px;border-radius:999px}
-  .ps-approved{background:#d6f7ea;color:#0a7a56}
-  .empty{color:#9fb0b8;font-size:.88rem;text-align:center;padding:14px}
-  details.import{margin-top:16px;background:#f7fbfc;border:1px dashed var(--mint);border-radius:12px;padding:12px 14px}
-  details.import summary{cursor:pointer;font-weight:700;color:var(--mint-dark)}
-  details.import p{font-size:.85rem;color:#5c7480;margin:8px 0}
-  #importLog{font-size:.82rem;color:#3a5a6b;margin-top:8px;white-space:pre-wrap;max-height:160px;overflow:auto}
-  input[type=file]{font-size:.85rem;margin:6px 0}
-
-  /* ===== STUDY ZONE ===== */
-  #studyZone{margin-top:18px}
-  .studybar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--paper);border-radius:16px 16px 0 0;padding:12px 16px;box-shadow:0 -2px 0 rgba(0,0,0,0) ,0 10px 30px rgba(13,43,62,.12);border-bottom:1px solid #eef3f4}
-  .studybar select{flex:1;min-width:180px;padding:10px 12px;border-radius:10px;border:1px solid #cdeee6;background:#f2fffb;font-size:.9rem;font-weight:700;color:var(--ink)}
-  .tabs{display:flex;gap:6px}
-  .tabs button{border:none;background:#eef4f6;color:#3a5a6b;font-weight:700;padding:9px 12px;border-radius:10px;cursor:pointer;font-size:.85rem}
-  .tabs button.active{background:var(--mint);color:#fff}
-  .studywrap{background:var(--paper);border-radius:0 0 16px 16px;box-shadow:0 14px 40px rgba(13,43,62,.15);overflow:hidden;min-height:60vh}
-  .panel{display:none;padding:16px}
-  .panel.active{display:block}
-  #bookLoading{padding:26px;text-align:center;color:#5c7480}
-
-  .readerctrls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
-  .readerctrls button{border:none;background:var(--mint);color:#fff;font-weight:800;width:40px;height:40px;border-radius:10px;cursor:pointer;font-size:1rem}
-  .readerctrls button.mini{width:auto;padding:0 12px;height:40px}
-  .readerctrls .pg{display:flex;align-items:center;gap:6px;font-size:.88rem;color:#5c7480}
-  .readerctrls input[type=number]{width:76px;padding:8px;border-radius:8px;border:1px solid #cdeee6;text-align:center}
-  .readerctrls .searchbox{flex:1;min-width:160px;display:flex;gap:6px}
-  .readerctrls .searchbox input{flex:1;padding:9px 12px;border-radius:10px;border:1px solid #cdeee6}
-  .pagecontent{white-space:pre-wrap;line-height:1.6;font-size:1rem;color:#243b47;background:#fff;border:1px solid #eef3f4;border-radius:12px;padding:20px;max-height:64vh;overflow:auto;user-select:text}
-  .pagecontent .pgnum{display:inline-block;background:#eef7f5;color:var(--mint-dark);font-weight:800;font-size:.78rem;padding:3px 10px;border-radius:999px;margin-bottom:12px}
-  mark{background:var(--yellow);padding:0 2px;border-radius:3px}
-  #searchResults{display:grid;gap:8px;margin-bottom:12px;max-height:40vh;overflow:auto}
-  .sres{background:#f7fbfc;border:1px solid #e2eef1;border-radius:10px;padding:10px 12px;cursor:pointer;font-size:.86rem}
-  .sres:hover{border-color:var(--mint)}
-  .sres b{color:var(--mint-dark)}
-
-  .chatmsgs{display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow:auto;padding:6px 2px 12px}
-  .msg{max-width:88%;padding:12px 14px;border-radius:14px;font-size:.95rem;line-height:1.55;white-space:normal}
-  .msg.user{align-self:flex-end;background:var(--mint);color:#fff;border-bottom-right-radius:4px}
-  .msg.bot{align-self:flex-start;background:#f2fffb;border:1px solid #cdeee6;border-bottom-left-radius:4px}
-  .msg.bot h4{margin:8px 0 4px;font-size:1rem;color:var(--mint-dark)}
-  .msg.bot ul,.msg.bot ol{margin:6px 0 6px 20px}
-  .msg.bot code{background:#e7f4f0;padding:1px 5px;border-radius:5px;font-size:.9em}
-  .cite{display:inline-block;background:var(--yellow);color:#7a5c00;font-weight:800;font-size:.78rem;padding:1px 8px;border-radius:999px;cursor:pointer;margin:0 2px;border:none}
-  .cite:hover{filter:brightness(1.05)}
-  .msg.think{color:#8a9aa4;font-style:italic}
-  .chatinput{display:flex;gap:8px;margin-top:10px;align-items:flex-end}
-  .chatinput textarea{flex:1;resize:none;min-height:48px;max-height:140px;padding:12px;border-radius:12px;border:1px solid #cdeee6;font-family:inherit;font-size:.95rem}
-  .chatinput button{flex:0 0 auto}
-  .modeswitch{display:flex;gap:6px;align-items:center;font-size:.8rem;color:#5c7480;margin-bottom:8px}
-  .modeswitch label{display:flex;gap:4px;align-items:center;cursor:pointer}
-
-  .noteadd{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
-  .noteadd textarea{min-height:70px;padding:12px;border-radius:12px;border:1px solid #cdeee6;font-family:inherit;font-size:.95rem;resize:vertical}
-  #notesList{display:grid;gap:10px}
-  .notecard{background:#fffef7;border:1px solid #ffe9a8;border-radius:12px;padding:12px 14px;font-size:.92rem}
-  .notecard .meta{font-size:.74rem;color:#a58a3a;margin-bottom:6px;display:flex;gap:10px;align-items:center}
-  .notecard .meta .pg{color:var(--mint-dark);font-weight:800;cursor:pointer}
-  .notecard .acts{display:flex;gap:8px;margin-top:8px}
-
-  .selpopup{position:absolute;z-index:60;display:flex;gap:6px;background:#06222d;padding:6px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
-  .selpopup button{border:none;background:transparent;color:#fff;font-weight:700;font-size:.82rem;padding:6px 10px;border-radius:8px;cursor:pointer}
-  .selpopup button:hover{background:rgba(255,255,255,.15)}
-
-  .home{margin-top:26px;text-align:center;font-size:.88rem;color:#3a5a6b;background:rgba(255,255,255,.55);border-radius:14px;padding:14px;backdrop-filter:blur(4px)}
-  .home b{color:var(--mint-dark)}
-  footer{text-align:center;margin-top:22px;font-size:.78rem;color:#5c7480}
-  footer .heart{color:var(--pink)}
-  .installcard{background:linear-gradient(135deg,#eafff9,#e3f4ff);border:1px solid #bfe9dd}
-  .installcard h3{font-size:1rem;margin-bottom:6px;color:var(--mint-dark)}
-  .installcard p{font-size:.88rem;color:#5c7480;margin-bottom:10px}
-  .ios-tip{font-size:.86rem;color:#3a5a6b;background:#fff;border-radius:10px;padding:12px;border:1px dashed var(--mint)}
-  .confetti{position:fixed;top:-10px;width:10px;height:16px;z-index:99;pointer-events:none;border-radius:2px}
-  @keyframes fall{to{transform:translateY(110vh) rotate(720deg);opacity:0}}
-  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:#06222d;color:#fff;padding:13px 20px;border-radius:12px;font-size:.9rem;z-index:200;box-shadow:0 10px 30px rgba(0,0,0,.3);transition:transform .3s;max-width:90vw;text-align:center}
-  .toast.show{transform:translateX(-50%) translateY(0)}
-  .spinner{width:32px;height:32px;border:4px solid #d7efe9;border-top-color:var(--mint);border-radius:50%;animation:spin 1s linear infinite;margin:16px auto}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  .hidden{display:none!important}
-  .dots::after{content:'';animation:dots 1.4s steps(4,end) infinite}
-  @keyframes dots{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
-
-  /* ===== CURSO ===== */
-  .courseHead{margin-bottom:16px}
-  .courseHead h2{font-size:1.3rem}
-  .progbar{height:10px;background:#e6f3ef;border-radius:999px;overflow:hidden;margin:8px 0 4px}
-  .progbar>div{height:100%;background:linear-gradient(90deg,var(--mint),var(--mint-dark));transition:width .4s}
-  .progtxt{font-size:.8rem;color:#5c7480}
-  .unit{margin-bottom:14px;background:#f7fbfc;border:1px solid #e2eef1;border-radius:14px;overflow:hidden}
-  .unit-h{padding:12px 14px;font-size:1.02rem;background:#eef7f5;color:var(--mint-dark)}
-  .lessons{display:grid;gap:1px;background:#eef3f4}
-  .lesson-item{display:flex;gap:12px;align-items:center;background:#fff;padding:12px 14px;cursor:pointer;transition:background .12s}
-  .lesson-item:hover{background:#f2fffb}
-  .lesson-item .chk{font-size:1.2rem;flex:0 0 auto}
-  .lesson-item .li-txt{min-width:0}
-  .lesson-item .li-txt b{display:block;font-size:.95rem}
-  .lesson-item .li-txt span{font-size:.82rem;color:#8a9aa4}
-  .coursegen{text-align:center;padding:30px 16px}
-  .coursegen .em{font-size:3rem;margin-bottom:8px}
-  .coursegen h3{margin-bottom:6px}
-  .coursegen p{color:#5c7480;font-size:.92rem;margin:0 auto 16px;max-width:460px}
-  .genlog{font-size:.85rem;color:var(--mint-dark);margin-top:12px;min-height:20px}
-  .lessobj{color:#5c7480;font-size:.92rem;margin-bottom:12px}
-  .sectabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid #eef3f4;padding-bottom:10px}
-  .sectabs button{border:none;background:#eef4f6;color:#3a5a6b;font-weight:700;padding:8px 12px;border-radius:10px;cursor:pointer;font-size:.85rem}
-  .sectabs button.active{background:var(--mint);color:#fff}
-  .lesson-content{line-height:1.65;font-size:1rem;color:#243b47}
-  .lesson-content h4{margin:14px 0 6px;color:var(--mint-dark)}
-  .sech{margin:18px 0 8px;color:var(--mint-dark)}
-  .terms{display:grid;gap:8px}
-  .term{background:#f7fbfc;border:1px solid #e2eef1;border-radius:10px;padding:10px 12px;font-size:.9rem}
-  .term b{color:var(--mint-dark)}
-  .lessfoot{margin-top:18px;display:flex;gap:8px;flex-wrap:wrap}
-  .quizq{background:#f7fbfc;border:1px solid #e2eef1;border-radius:12px;padding:14px;margin-bottom:12px}
-  .quizq .qq{font-size:.98rem;margin-bottom:10px}
-  .opts{display:grid;gap:8px}
-  .opt{text-align:left;border:1px solid #cdeee6;background:#fff;padding:11px 14px;border-radius:10px;cursor:pointer;font-size:.92rem}
-  .opt:hover{border-color:var(--mint)}
-  .opt.ok{background:#e4fff5;border-color:var(--ok);font-weight:700}
-  .opt.bad{background:#ffeaec;border-color:var(--bad)}
-  .qexp{margin-top:10px;font-size:.88rem;color:#3a5a6b;background:#fffef7;border:1px solid #ffe9a8;border-radius:8px;padding:10px}
-  .quizres{text-align:center;margin-top:16px;background:#e4fff5;border:1px solid #b6ecd8;border-radius:14px;padding:18px}
-  .quizacts{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap}
-  .flashwrap{text-align:center;padding:10px}
-  .flashcard{perspective:1000px;max-width:420px;height:220px;margin:0 auto;cursor:pointer}
-  .fc-inner{position:relative;width:100%;height:100%;transition:transform .5s;transform-style:preserve-3d}
-  .flashcard.flipped .fc-inner{transform:rotateY(180deg)}
-  .fc-front,.fc-back{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:16px;display:grid;place-items:center;padding:20px;font-size:1.05rem;box-shadow:0 8px 24px rgba(13,43,62,.15)}
-  .fc-front{background:linear-gradient(135deg,var(--mint),var(--mint-dark));color:#fff;font-weight:700}
-  .fc-back{background:#fffef7;border:1px solid #ffe9a8;color:#243b47;transform:rotateY(180deg)}
-  .flashnav{display:flex;gap:14px;align-items:center;justify-content:center;margin-top:14px}
-  .fchint{font-size:.8rem;color:#9fb0b8;margin-top:8px}
-  .disclaimer{font-size:.8rem;color:#9fb0b8;margin-top:14px;border-top:1px solid #eef3f4;padding-top:10px}
-  .sources{margin-top:16px;background:#f2fffb;border:1px solid #cdeee6;border-radius:12px;padding:12px 14px;font-size:.86rem;display:grid;gap:6px}
-  .sources a{color:var(--mint-dark);text-decoration:none;font-weight:600}
-  .sources a:hover{text-decoration:underline}
-  /* gamificación */
-  .stats{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 10px}
-  .stats span{background:#eef7f5;color:var(--mint-dark);font-weight:800;font-size:.82rem;padding:6px 12px;border-radius:999px}
-  .badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-  .badge2{background:linear-gradient(135deg,#fff7d6,#ffe9a8);border:1px solid #ffdf7a;color:#8a6d1a;font-weight:700;font-size:.76rem;padding:4px 10px;border-radius:999px}
-  .levelup{background:#e4fff5;border:1px solid #b6ecd8;border-radius:12px;padding:10px 14px;margin-top:10px;font-weight:700;color:var(--mint-dark);text-align:center}
-  /* juego unir */
-  .matchwrap{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .matchcol{display:grid;gap:8px}
-  .matchbtn{text-align:left;border:1px solid #cdeee6;background:#fff;padding:10px 12px;border-radius:10px;cursor:pointer;font-size:.88rem;transition:.12s}
-  .matchbtn:hover{border-color:var(--mint)}
-  .matchbtn.sel{background:var(--mint);color:#fff;border-color:var(--mint)}
-  .matchbtn.matched{background:#e4fff5;border-color:var(--ok);color:#0a7a56;cursor:default;opacity:.7}
-  .matchbtn.wrong{background:#ffeaec;border-color:var(--bad)}
-  .matchhead{font-size:.82rem;color:#8a9aa4;margin-bottom:6px;font-weight:700}
-  .matchdone{text-align:center;background:#e4fff5;border:1px solid #b6ecd8;border-radius:12px;padding:14px;margin-top:12px;font-weight:700;color:var(--mint-dark)}
-
-  /* ===== INICIO MÁGICO ===== */
-  .hero{padding-top:14px}
-  .orb{position:relative;width:120px;height:120px;margin:0 auto 6px;display:grid;place-items:center}
-  .orb .brain{font-size:4.2rem;filter:drop-shadow(0 10px 22px rgba(15,185,166,.45));animation:bob 3s ease-in-out infinite;z-index:2}
-  .orb .ring{position:absolute;inset:6px;border-radius:50%;border:2px solid rgba(15,185,166,.35);animation:pulsering 3s ease-out infinite}
-  .orb .ring.r2{animation-delay:1.5s}
-  @keyframes pulsering{0%{transform:scale(.7);opacity:.9}100%{transform:scale(1.5);opacity:0}}
-  h1.magic{font-size:clamp(2rem,7vw,3.2rem);font-weight:900;letter-spacing:-.5px;margin:6px 0}
-  .grad{background:linear-gradient(90deg,#0fb9a6,#a06bff 50%,#ff5d8f);-webkit-background-clip:text;background-clip:text;color:transparent;background-size:200% auto;animation:shine 4s linear infinite}
-  @keyframes shine{to{background-position:200% center}}
-  .glass{background:rgba(255,255,255,.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.6);box-shadow:0 18px 50px rgba(13,43,62,.14)}
-  .welcome{border-radius:22px;padding:20px;margin-top:18px}
-  .wtiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-  .wtile{background:rgba(255,255,255,.7);border:1px solid rgba(205,238,230,.9);border-radius:16px;padding:14px 8px;text-align:center;transition:transform .2s}
-  .wtile:hover{transform:translateY(-4px)}
-  .wtile .wemoji{font-size:1.8rem;display:block;margin-bottom:6px}
-  .wtile b{display:block;font-size:.82rem;color:var(--ink)}
-  .wtile small{font-size:.68rem;color:#7a8f98}
-  .wtext{text-align:center;color:#3a5a6b;font-size:.96rem;margin-top:16px;line-height:1.5}
-  @media(max-width:560px){.wtiles{grid-template-columns:repeat(2,1fr)}}
-
-  /* ===== BARRA DE CHATS ===== */
-  .chatbar{display:flex;gap:8px;align-items:center;margin-bottom:10px}
-  .chatsel{flex:1;min-width:0;padding:9px 10px;border-radius:10px;border:1px solid #cdeee6;background:#f2fffb;font-size:.85rem;font-weight:600;color:var(--ink)}
-  .iconbtn{flex:0 0 auto;width:38px;height:38px;border:none;border-radius:10px;background:#eef4f6;color:var(--mint-dark);font-size:1.1rem;font-weight:800;cursor:pointer;transition:.12s}
-  .iconbtn:hover{background:var(--mint);color:#fff}
-  .iconbtn.danger:hover{background:var(--bad)}
-  .chatbar .modeswitch{margin:0;flex:0 0 auto;background:#f2fffb;border:1px solid #cdeee6;border-radius:10px;padding:4px 8px;gap:6px}
-  .chatbar .modeswitch label{gap:3px;font-size:.9rem}
-
-  /* pulido general */
-  .card{border:1px solid rgba(255,255,255,.5)}
-  .lesson-item:active{transform:scale(.99)}
-  .btn-mint{background-size:180% auto;transition:transform .15s,filter .15s,background-position .4s}
-  .btn-mint:hover{background-position:right center}
-
-  /* ===== ANIMACIÓN DE BIENVENIDA ===== */
-  .welcomeanim{position:fixed;inset:0;z-index:400;display:grid;place-items:center;text-align:center;color:#fff;cursor:pointer;overflow:hidden;background:radial-gradient(circle at 50% 38%,#12c7b2,#08897c 62%,#053b35);animation:waIn .45s ease}
-  .welcomeanim.out{animation:waOut .7s ease forwards}
-  @keyframes waIn{from{opacity:0}to{opacity:1}}
-  @keyframes waOut{to{opacity:0;visibility:hidden}}
-  .wa-inner{position:relative;padding:20px;animation:waPop .8s cubic-bezier(.2,1.3,.4,1)}
-  @keyframes waPop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
-  .wa-orb{font-size:5rem;filter:drop-shadow(0 0 34px rgba(255,255,255,.65));animation:waFloat 2.4s ease-in-out infinite}
-  @keyframes waFloat{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-14px) rotate(4deg)}}
-  .wa-title{font-size:clamp(1.8rem,7vw,2.6rem);font-weight:900;margin:14px 0 4px;text-shadow:0 6px 24px rgba(0,0,0,.22)}
-  .wa-sub{font-size:1.05rem;opacity:.96}
-  .wa-bar{width:180px;height:5px;border-radius:999px;background:rgba(255,255,255,.28);margin:22px auto 8px;overflow:hidden}
-  .wa-bar span{display:block;height:100%;background:#fff;width:0;animation:waBar 2.4s linear forwards}
-  @keyframes waBar{to{width:100%}}
-  .wa-skip{font-size:.74rem;opacity:.6;letter-spacing:.5px}
-  .wa-spark{position:absolute;pointer-events:none;opacity:0;animation:waSpark 1.9s ease-in-out infinite}
-  @keyframes waSpark{0%{opacity:0;transform:scale(.4)}30%{opacity:1}100%{opacity:0;transform:scale(1.5) translateY(-22px)}}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="AVICI Neural Theatre: cursos clínicos, lectura profunda y un profesor IA conectado a tus libros.">
+  <meta name="theme-color" content="#07131b">
+  <meta name="color-scheme" content="dark light">
+  <title>AVICI — Neural Study Theatre</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" type="image/png" href="/icon-192.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="stylesheet" href="/styles.css">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
-
-<div class="floaties" id="floaties"></div>
-
-<div id="welcomeAnim" class="welcomeanim hidden">
-  <div class="wa-inner">
-    <div class="wa-orb">🧠</div>
-    <h2 class="wa-title" id="waTitle">¡Hola!</h2>
-    <p class="wa-sub">Bienvenida a tu mundo de estudio ✨</p>
-    <div class="wa-bar"><span></span></div>
-    <div class="wa-skip">tocá para entrar</div>
-  </div>
-</div>
-
-<div class="wrap">
-  <div class="hero" id="heroBlock">
-    <div class="orb"><span class="brain">🧠</span><span class="ring"></span><span class="ring r2"></span></div>
-    <h1 class="magic">El mundo de <span class="grad">AVICI</span></h1>
-    <p class="sub">Tu universo mágico para dominar la enfermería y llegar a <b>neurocirujana</b>. ✨🧠</p>
+  <div class="ambient-field" aria-hidden="true">
+    <span class="ambient-orb ambient-orb-a"></span>
+    <span class="ambient-orb ambient-orb-b"></span>
+    <span class="ambient-line ambient-line-a"></span>
+    <span class="ambient-line ambient-line-b"></span>
   </div>
 
-  <div class="welcome glass" id="welcomeCard">
-    <div class="wtiles">
-      <div class="wtile"><span class="wemoji">📚</span><b>Tus 2 libros</b><small>hechos cursos</small></div>
-      <div class="wtile"><span class="wemoji">🤖</span><b>Tu Profe IA</b><small>experto, 24/7</small></div>
-      <div class="wtile"><span class="wemoji">🎮</span><b>Juegos</b><small>quiz · unir · cards</small></div>
-      <div class="wtile"><span class="wemoji">🏆</span><b>Subí de nivel</b><small>XP, rachas, logros</small></div>
-    </div>
-    <p class="wtext">Elegí un libro, seguí el curso, jugá y preguntale al Profe lo que quieras. Cada logro te acerca al quirófano. 🩺✨</p>
-  </div>
-
-  <!-- ACCESO -->
-  <div class="card access" id="accessCard">
-    <div id="accessLoading"><div class="spinner"></div><p style="text-align:center;color:#8a9aa4;font-size:.9rem">Conectando con la clínica…</p></div>
-    <div id="viewLogin" class="hidden">
-      <h2>🔐 Entrá a tu zona de estudio</h2>
-      <p class="lead">Ingresá con tu Google. Sebastián (jefe de la clínica 🩺) aprueba a quién entra.</p>
-      <button class="btn btn-google" id="btnLogin">
-        <svg class="gicon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-        Entrar con Google</button>
-      <p style="font-size:.8rem;color:#9fb0b8;text-align:center;margin-top:12px">Funciona en Android, iPhone y computadora 📱💻</p>
-    </div>
-    <div id="viewPending" class="hidden">
-      <div id="whoamiPending"></div>
-      <div class="statebox st-pending"><span class="em">⏳</span><h3>Tu acceso está en revisión</h3><p>Avisamos a Sebastián 🩺. Cuando te apruebe, esta pantalla se desbloquea sola. ¡Paciencia, futura doctora! 🧠</p></div>
-      <button class="btn btn-ghost" id="btnLogoutP">Cerrar sesión</button>
-    </div>
-    <div id="viewRejected" class="hidden">
-      <div id="whoamiRejected"></div>
-      <div class="statebox st-rejected"><span class="em">🚫</span><h3>Acceso no aprobado</h3><p>Si creés que es un error, hablá con Sebastián.</p></div>
-      <button class="btn btn-ghost" id="btnLogoutR">Cerrar sesión</button>
+  <div id="welcomeAnim" class="welcomeanim hidden" role="dialog" aria-label="Bienvenida a AVICI">
+    <div class="wa-inner">
+      <div class="wa-mark" aria-hidden="true"><span>A</span></div>
+      <p class="wa-kicker">NEURAL THEATRE · SESSION READY</p>
+      <h2 class="wa-title" id="waTitle">Hola, Avici</h2>
+      <p class="wa-sub">Tu próxima sesión clínica está preparada.</p>
+      <div class="wa-bar"><span></span></div>
+      <div class="wa-skip">Tocá para entrar</div>
     </div>
   </div>
 
-  <!-- ADMIN -->
-  <div class="card admin hidden" id="adminZone">
-    <div id="whoamiAdmin"></div>
-    <h3>🩺 Solicitudes pendientes <span class="count" id="pendingCount">0</span></h3>
-    <div class="ulist" id="pendingList"><div class="empty">Cargando…</div></div>
-    <h3>✅ Aprobados</h3>
-    <div class="ulist" id="approvedList"><div class="empty">Cargando…</div></div>
-    <details class="import">
-      <summary>⚙️ Importar / actualizar libros (admin)</summary>
-      <p>Subí <b>thibodeau.pages.json</b> y <b>mazarrasa.pages.json</b> (están en tu carpeta <b>avici-materiales</b>). Se guardan privados en Firestore, solo para usuarios aprobados.</p>
-      <input type="file" id="importFile" accept=".json,application/json" multiple>
-      <button class="btn btn-mint btn-sm" id="importBtn" style="margin-top:6px">📥 Importar a Firestore</button>
-      <div id="importLog"></div>
-    </details>
-  </div>
-
-  <!-- ZONA DE ESTUDIO -->
-  <section id="studyZone" class="hidden">
-    <div class="studybar">
-      <select id="bookSel"></select>
-      <div class="tabs">
-        <button data-tab="curso" class="active">🎓 Curso</button>
-        <button data-tab="libro">📖 Libro</button>
-        <button data-tab="chat">🤖 Profe</button>
-        <button data-tab="notas">✍️ Notas</button>
+  <div class="site-shell">
+    <header class="landing-hero" id="heroBlock">
+      <div class="hero-copy">
+        <p class="eyebrow"><span></span> PRIVATE NEURAL LEARNING SYSTEM</p>
+        <h1><span class="wordmark">AVICI</span><span class="hero-title-line">Neural Study Theatre</span></h1>
+        <p class="hero-lead">Un espacio de estudio conectado a tus libros, diseñado para pensar como clínica y avanzar como futura neurocirujana.</p>
+        <div class="hero-signals" aria-label="Capacidades principales">
+          <span>V4 reasoning</span>
+          <span>Book-grounded</span>
+          <span>Private memory</span>
+        </div>
       </div>
-      <button class="btn btn-ghost btn-sm" id="btnLogoutS">Salir</button>
-    </div>
-    <div class="studywrap">
-      <div id="bookLoading" class="hidden"><div class="spinner"></div><p id="bookLoadingTxt">Cargando…</p></div>
 
-      <!-- CURSO -->
-      <div class="panel active" id="panel-curso">
-        <div id="courseHome"></div>
-        <div id="lessonView" class="hidden">
-          <button class="btn btn-ghost btn-sm" id="btnBackMap" style="margin-bottom:10px">← Volver al mapa</button>
-          <h2 id="lessonTitle"></h2>
-          <p id="lessonObjective" class="lessobj"></p>
-          <div id="lessonSecTabs" class="sectabs">
-            <button data-sec="leccion" class="active">📘 Lección</button>
-            <button data-sec="quiz">🎮 Quiz</button>
-            <button data-sec="unir">🔗 Unir</button>
-            <button data-sec="flash">🃏 Flashcards</button>
-            <button data-sec="mundo">🌐 Mundo hoy</button>
+      <div class="neural-stage" role="img" aria-label="Núcleo neural activo conectado al conocimiento de AVICI">
+        <div class="stage-coordinate coord-a">AX. 04</div>
+        <div class="stage-coordinate coord-b">MEM. ONLINE</div>
+        <div class="neural-core">
+          <span class="neural-ring ring-one"></span>
+          <span class="neural-ring ring-two"></span>
+          <span class="neural-ring ring-three"></span>
+          <span class="neural-node node-one"></span>
+          <span class="neural-node node-two"></span>
+          <span class="neural-node node-three"></span>
+          <span class="neural-node node-four"></span>
+          <div class="core-mark"><small>NEURAL</small><strong>A</strong><small>ACTIVE</small></div>
+        </div>
+        <div class="stage-readout"><i></i><span>Knowledge link stable</span><b>100%</b></div>
+      </div>
+    </header>
+
+    <section class="welcome-panel" id="welcomeCard" aria-labelledby="welcomeTitle">
+      <div class="welcome-intro">
+        <p class="section-label">YOUR PRIVATE LEARNING OS</p>
+        <h2 id="welcomeTitle">Del libro al razonamiento clínico.</h2>
+        <p>No es una biblioteca ni un chat aislado. AVICI convierte el material en una ruta viva para entender, practicar, recordar y preguntar.</p>
+      </div>
+      <div class="capability-grid">
+        <article><span>01</span><b>Rutas de estudio</b><small>Unidades y lecciones conectadas</small></article>
+        <article><span>02</span><b>Profesor con memoria</b><small>Contexto persistente por libro</small></article>
+        <article><span>03</span><b>Práctica activa</b><small>Quiz, relaciones y flashcards</small></article>
+        <article><span>04</span><b>Evidencia visible</b><small>Citas de página y mundo actual</small></article>
+      </div>
+    </section>
+
+    <section class="access-card" id="accessCard" aria-label="Acceso privado">
+      <div id="accessLoading">
+        <div class="spinner"></div>
+        <p class="loading-copy">Sincronizando tu espacio privado…</p>
+      </div>
+      <div id="viewLogin" class="hidden access-login">
+        <div>
+          <p class="section-label">PRIVATE ACCESS</p>
+          <h2>Entrá a tu teatro de estudio.</h2>
+          <p class="lead">Tu progreso, notas y conversaciones permanecen vinculados a tu cuenta.</p>
+        </div>
+        <button class="btn btn-google" id="btnLogin"><span class="google-mark">G</span>Continuar con Google</button>
+      </div>
+      <div id="viewPending" class="hidden">
+        <div id="whoamiPending"></div>
+        <div class="statebox st-pending"><span class="state-index">WAIT / 01</span><h3>Acceso en revisión</h3><p>La solicitud ya llegó. Esta pantalla se desbloquea automáticamente cuando Sebastián la apruebe.</p></div>
+        <button class="btn btn-ghost" id="btnLogoutP">Cerrar sesión</button>
+      </div>
+      <div id="viewRejected" class="hidden">
+        <div id="whoamiRejected"></div>
+        <div class="statebox st-rejected"><span class="state-index">ACCESS / 00</span><h3>Acceso no aprobado</h3><p>Si creés que se trata de un error, hablá con Sebastián.</p></div>
+        <button class="btn btn-ghost" id="btnLogoutR">Cerrar sesión</button>
+      </div>
+    </section>
+
+    <section class="admin-card hidden" id="adminZone">
+      <div id="whoamiAdmin"></div>
+      <div class="admin-heading"><div><p class="section-label">CONTROL ROOM</p><h3>Solicitudes pendientes</h3></div><span class="count" id="pendingCount">0</span></div>
+      <div class="ulist" id="pendingList"><div class="empty">Cargando…</div></div>
+      <h3>Accesos aprobados</h3>
+      <div class="ulist" id="approvedList"><div class="empty">Cargando…</div></div>
+      <details class="import">
+        <summary>Importar o actualizar libros</summary>
+        <p>Subí los archivos <b>thibodeau.pages.json</b> y <b>mazarrasa.pages.json</b>. Se guardan de forma privada en Firestore.</p>
+        <input type="file" id="importFile" accept=".json,application/json" multiple>
+        <button class="btn btn-mint btn-sm" id="importBtn">Importar a Firestore</button>
+        <div id="importLog"></div>
+      </details>
+    </section>
+
+    <section id="studyZone" class="workspace hidden" aria-label="Zona de estudio AVICI">
+      <aside class="studybar">
+        <div class="study-brand"><span class="brand-glyph">A</span><div><b>AVICI</b><small>NEURAL THEATRE</small></div></div>
+        <label class="book-control" for="bookSel"><span>ACTIVE SOURCE</span><select id="bookSel"></select></label>
+        <nav class="tabs" aria-label="Secciones de estudio">
+          <button data-tab="curso" class="active"><span class="nav-icon">⌁</span><span><b>Curso</b><small>Tu ruta clínica</small></span></button>
+          <button data-tab="libro"><span class="nav-icon">▤</span><span><b>Libro</b><small>Fuente original</small></span></button>
+          <button data-tab="chat"><span class="nav-icon">◉</span><span><b>Profe</b><small>Razonamiento IA</small></span></button>
+          <button data-tab="notas"><span class="nav-icon">⌑</span><span><b>Notas</b><small>Memoria personal</small></span></button>
+        </nav>
+        <div class="rail-status"><span></span><div><b>Sistema conectado</b><small>RAG + memoria privada</small></div></div>
+        <button class="btn btn-rail" id="btnLogoutS">Cerrar sesión</button>
+      </aside>
+
+      <main class="studywrap">
+        <div id="bookLoading" class="loading-overlay hidden"><div class="spinner"></div><p id="bookLoadingTxt">Cargando…</p></div>
+
+        <section class="panel active" id="panel-curso" aria-label="Curso">
+          <div id="courseHome"></div>
+          <div id="lessonView" class="hidden">
+            <button class="btn btn-ghost btn-sm" id="btnBackMap">← Volver a la ruta</button>
+            <div class="lesson-heading"><p class="section-label">ACTIVE LESSON</p><h2 id="lessonTitle"></h2><p id="lessonObjective" class="lessobj"></p></div>
+            <div id="lessonSecTabs" class="sectabs" role="tablist" aria-label="Modos de lección">
+              <button data-sec="leccion" class="active">Lección</button>
+              <button data-sec="quiz">Quiz</button>
+              <button data-sec="unir">Conectar</button>
+              <button data-sec="flash">Flashcards</button>
+              <button data-sec="mundo">Mundo hoy</button>
+            </div>
+            <div id="lessonBody"></div>
           </div>
-          <div id="lessonBody"></div>
-        </div>
-      </div>
+        </section>
 
-      <!-- LIBRO (consulta) -->
-      <div class="panel" id="panel-libro">
-        <div class="readerctrls">
-          <button id="pgPrev" title="Anterior">◀</button>
-          <div class="pg">pág. <input id="pgInput" type="number" min="1"> / <span id="pgTotal">—</span></div>
-          <button id="pgNext" title="Siguiente">▶</button>
-          <div class="searchbox"><input id="searchInput" placeholder="Buscar en el libro…"><button id="searchBtn" class="mini">🔍</button></div>
-        </div>
-        <div id="searchResults" class="hidden"></div>
-        <div class="pagecontent" id="pageContent">Elegí un libro para consultarlo. 📖</div>
-      </div>
+        <section class="panel" id="panel-libro" aria-label="Lector del libro">
+          <div class="panel-heading"><div><p class="section-label">SOURCE READER</p><h2>Libro activo</h2></div><p>Consultá la fuente sin salir de tu sesión.</p></div>
+          <div class="readerctrls">
+            <button id="pgPrev" title="Página anterior" aria-label="Página anterior">←</button>
+            <div class="pg">PÁG. <input id="pgInput" type="number" min="1" aria-label="Número de página"> / <span id="pgTotal">—</span></div>
+            <button id="pgNext" title="Página siguiente" aria-label="Página siguiente">→</button>
+            <div class="searchbox"><input id="searchInput" placeholder="Buscar concepto en el libro…" aria-label="Buscar en el libro"><button id="searchBtn" class="mini" aria-label="Buscar">Buscar</button></div>
+          </div>
+          <div id="searchResults" class="hidden"></div>
+          <article class="pagecontent" id="pageContent">Elegí un libro para consultarlo.</article>
+        </section>
 
-      <!-- PROFE (chat guía) -->
-      <div class="panel" id="panel-chat">
-        <div class="chatbar">
-          <select id="chatSel" class="chatsel" title="Tus chats"></select>
-          <button class="iconbtn" id="chatNew" title="Nuevo chat">＋</button>
-          <button class="iconbtn danger" id="chatDel" title="Borrar este chat">🗑</button>
-          <div class="modeswitch"><label><input type="radio" name="mode" value="flash" checked> ⚡</label><label><input type="radio" name="mode" value="pro"> 🧠</label></div>
-        </div>
-        <div class="chatmsgs" id="chatMsgs"></div>
-        <div class="chatinput">
-          <textarea id="chatInput" placeholder="Preguntale al Profe lo que quieras… 📄"></textarea>
-          <button class="btn btn-mint" id="chatSend" style="width:auto">Enviar</button>
-        </div>
-      </div>
+        <section class="panel chat-panel" id="panel-chat" aria-label="Profesor IA">
+          <header class="chat-head">
+            <div class="prof-identity"><span class="prof-mark">A</span><div><p class="section-label">CLINICAL REASONING PARTNER</p><h2>El Profe</h2><p>Pregunta, conecta y profundiza con evidencia del libro.</p></div></div>
+            <span class="chat-signal" id="chatSignal" data-state="ready">Memoria lista</span>
+          </header>
+          <div class="chatbar">
+            <label class="sr-only" for="chatSel">Conversaciones guardadas</label>
+            <select id="chatSel" class="chatsel" title="Tus conversaciones"></select>
+            <button class="iconbtn" id="chatNew" title="Nueva conversación" aria-label="Nueva conversación">＋</button>
+            <button class="iconbtn danger" id="chatDel" title="Borrar esta conversación" aria-label="Borrar esta conversación">×</button>
+            <fieldset class="modeswitch"><legend class="sr-only">Profundidad de respuesta</legend><label><input type="radio" name="mode" value="flash" checked><span>Flash</span></label><label><input type="radio" name="mode" value="pro"><span>Pro</span></label></fieldset>
+          </div>
+          <div class="prompt-row" aria-label="Preguntas sugeridas">
+            <button data-chat-prompt="Explicame el concepto central de esta lección con una analogía clínica.">Analogía clínica</button>
+            <button data-chat-prompt="Haceme tres preguntas para comprobar si entendí este tema.">Poneme a prueba</button>
+            <button data-chat-prompt="¿Qué suele confundirse de este tema y cómo lo recuerdo mejor?">Evitar confusiones</button>
+          </div>
+          <div class="chatmsgs" id="chatMsgs" aria-live="polite"><div class="empty"><b>La memoria está limpia.</b><br>Traé una duda, una relación clínica o algo que quieras entender de verdad.</div></div>
+          <div class="chatinput">
+            <label class="sr-only" for="chatInput">Mensaje para el Profe</label>
+            <textarea id="chatInput" placeholder="Traé una duda. El Profe conecta el historial con el libro…" rows="2"></textarea>
+            <button class="btn btn-mint" id="chatSend">Enviar <span>↗</span></button>
+          </div>
+          <p class="chat-privacy"><span></span> Contexto persistente por conversación · respuestas vinculadas al libro activo</p>
+        </section>
 
-      <!-- NOTAS -->
-      <div class="panel" id="panel-notas">
-        <div class="noteadd">
-          <textarea id="noteInput" placeholder="Escribí una nota…"></textarea>
-          <button class="btn btn-mint btn-sm" id="noteAdd" style="width:auto;align-self:flex-start">Guardar nota</button>
-        </div>
-        <div id="notesList"><div class="empty">Todavía no tenés notas.</div></div>
-      </div>
-    </div>
-    <div id="selPopup" class="selpopup hidden">
-      <button id="selAsk">🤖 Preguntar</button>
-      <button id="selNote">✍️ Nota</button>
-    </div>
-  </section>
+        <section class="panel" id="panel-notas" aria-label="Notas privadas">
+          <div class="panel-heading"><div><p class="section-label">PRIVATE MEMORY</p><h2>Notas de campo</h2></div><p>Capturá lo importante y volvé a preguntarlo cuando quieras.</p></div>
+          <div class="noteadd">
+            <label class="sr-only" for="noteInput">Nueva nota</label>
+            <textarea id="noteInput" placeholder="Escribí una observación, una duda o algo que querés recordar…"></textarea>
+            <button class="btn btn-mint btn-sm" id="noteAdd">Guardar nota</button>
+          </div>
+          <div id="notesList"><div class="empty">Todavía no tenés notas.</div></div>
+        </section>
+      </main>
 
-  <div class="card installcard" id="installCard">
-    <h3>📲 Instalá la app en tu celular</h3>
-    <p>Para tenerla como app de verdad (pantalla completa, ícono en tu inicio).</p>
-    <button class="btn btn-mint hidden" id="btnInstall">⬇️ Instalar AVICI</button>
-    <div class="ios-tip hidden" id="iosTip"><b>En iPhone:</b> tocá <b>Compartir</b> (el cuadrito con la flecha ↑) abajo en Safari, y luego <b>“Añadir a pantalla de inicio”</b>. 🧠</div>
-    <div class="ios-tip hidden" id="androidTip"><b>En Android:</b> abrí el menú <b>⋮</b> de Chrome y tocá <b>“Instalar app”</b>.</div>
+      <div id="selPopup" class="selpopup hidden">
+        <button id="selAsk">Preguntar al Profe</button>
+        <button id="selNote">Guardar nota</button>
+      </div>
+    </section>
+
+    <section class="install-card" id="installCard">
+      <div><p class="section-label">AVICI / POCKET MODE</p><h3>Llevá el teatro de estudio con vos.</h3><p>Instalá la experiencia en tu celular para entrar a pantalla completa.</p></div>
+      <button class="btn btn-mint hidden" id="btnInstall">Instalar AVICI</button>
+      <div class="ios-tip hidden" id="iosTip"><b>En iPhone:</b> Compartir → “Añadir a pantalla de inicio”.</div>
+      <div class="ios-tip hidden" id="androidTip"><b>En Android:</b> menú ⋮ → “Instalar app”.</div>
+    </section>
+
+    <div class="home-nudge" id="homeNudge"><span>PRIVATE LINK</span><p>Guardá este acceso. Acá viven tu material, progreso y conversaciones.</p></div>
+    <footer id="pageFooter"><span>AVICI / 2026</span><p>Construido por Sebastián para una futura neurocirujana.</p></footer>
   </div>
 
-  <div class="home">🏠 <b>Guardá este link.</b> Acá vive TODO tu material de estudio. Este es tu quirófano digital, doctora. 🧠✨</div>
-  <footer>Hecho con <span class="heart">❤️</span> por Sebastián para su Avici · Futura neurocirujana en construcción 🚧🧠</footer>
-</div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<div class="toast" id="toast"></div>
-
-<script>
-  /* Landing interactivo (sin Firebase) */
-  const emojis=["🧠","💉","💊","🩺","🫀","📚","🩹","⚕️","🔬","🧬","✏️","🎓"];
-  const cont=document.getElementById('floaties');
-  for(let i=0;i<18;i++){const s=document.createElement('span');s.textContent=emojis[Math.floor(Math.random()*emojis.length)];s.style.left=(Math.random()*100)+'%';s.style.fontSize=(1.2+Math.random()*2)+'rem';s.style.animationDuration=(9+Math.random()*12)+'s';s.style.animationDelay=(-Math.random()*15)+'s';cont.appendChild(s);}
-  window.toggle=function(li){li.classList.toggle('done')};
-  window.confetti=function(){const c=['#0fb9a6','#ff5d8f','#ffd23f','#61ffd6','#a06bff'];for(let i=0;i<60;i++){const e=document.createElement('div');e.className='confetti';e.style.left=Math.random()*100+'vw';e.style.background=c[Math.floor(Math.random()*c.length)];e.style.animation=`fall ${2+Math.random()*2}s linear ${Math.random()*.6}s forwards`;document.body.appendChild(e);setTimeout(()=>e.remove(),4200);}};
-  window._toast=function(m,ms=4200){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),ms);};
-  if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}
-  let deferredPrompt=null;
-  window.addEventListener('beforeinstallprompt',(e)=>{e.preventDefault();deferredPrompt=e;document.getElementById('btnInstall').classList.remove('hidden');});
-  document.getElementById('btnInstall').addEventListener('click',async()=>{if(!deferredPrompt)return;deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;document.getElementById('btnInstall').classList.add('hidden');});
-  (function(){const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);const sa=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;if(sa){document.getElementById('installCard').classList.add('hidden');return;}document.getElementById(isIOS?'iosTip':'androidTip').classList.remove('hidden');})();
-</script>
-<script type="module" src="/app.js"></script>
+  <script>
+    const toast = document.getElementById('toast');
+    window._toast = (message, ms = 3200) => { toast.textContent = message; toast.classList.add('show'); clearTimeout(toast._timer); toast._timer = setTimeout(() => toast.classList.remove('show'), ms); };
+    window.confetti = function () {
+      const colors = ['#5fffd2', '#91a7ff', '#ff8f70', '#f4ff9a'];
+      for (let i = 0; i < 42; i++) {
+        const piece = document.createElement('i'); piece.className = 'confetti';
+        piece.style.left = Math.random() * 100 + 'vw'; piece.style.background = colors[i % colors.length];
+        piece.style.animationDuration = (1.8 + Math.random() * 1.8) + 's'; piece.style.animationDelay = (Math.random() * .35) + 's';
+        document.body.appendChild(piece); setTimeout(() => piece.remove(), 4200);
+      }
+    };
+    if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+    let deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', event => { event.preventDefault(); deferredPrompt = event; document.getElementById('btnInstall').classList.remove('hidden'); });
+    document.getElementById('btnInstall').addEventListener('click', async () => { if (!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; document.getElementById('btnInstall').classList.add('hidden'); });
+    (() => { const ios = /iphone|ipad|ipod/i.test(navigator.userAgent); const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; if (standalone) { document.getElementById('installCard').classList.add('hidden'); return; } document.getElementById(ios ? 'iosTip' : 'androidTip').classList.remove('hidden'); })();
+  </script>
+  <script type="module" src="/app.js"></script>
 </body>
 </html>

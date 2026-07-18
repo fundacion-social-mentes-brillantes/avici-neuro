@@ -83,7 +83,7 @@ async function ensureUserDoc(user) {
   }
   return ref;
 }
-const CARDS = ["welcomeCard"];
+const CARDS = ["welcomeCard", "heroBlock", "installCard", "homeNudge", "pageFooter"];
 const setLanding = (on) => CARDS.forEach(id => show(id, on));
 
 function renderByStatus(user, data) {
@@ -161,12 +161,13 @@ $("importBtn") && $("importBtn").addEventListener("click", async () => {
       const title = obj.title || bookId; const pages = obj.pages || [];
       if (!pages.length) { ilog("  ⚠️ sin páginas, salto."); continue; }
       const pieces = splitByBytes(JSON.stringify(pages), 900 * 1024);
+      const contentVersion = Date.now();
       const old = await getDocs(collection(db, "books", bookId, "bundles"));
       if (!old.empty) { let b = writeBatch(db), n = 0; for (const d of old.docs) { b.delete(d.ref); if (++n >= 400) { await b.commit(); b = writeBatch(db); n = 0; } } if (n) await b.commit(); }
-      await setDoc(doc(db, "books", bookId), { title, pageCount: pages.length, bundleCount: pieces.length, updatedAt: serverTimestamp() }, { merge: true });
       let batch = writeBatch(db), ops = 0;
       for (let i = 0; i < pieces.length; i++) { batch.set(doc(db, "books", bookId, "bundles", String(i)), { i, data: pieces[i] }); if (++ops >= 400) { await batch.commit(); batch = writeBatch(db); ops = 0; ilog(`  ${bookId}: ${i + 1}/${pieces.length}`); } }
       if (ops) await batch.commit();
+      await setDoc(doc(db, "books", bookId), { title, pageCount: pages.length, bundleCount: pieces.length, contentVersion, updatedAt: serverTimestamp() }, { merge: true });
       try { const c = await idb(); await c.deleteBook(bookId); } catch {}
       ilog(`✅ ${bookId}: ${pages.length} páginas en ${pieces.length} bloques.`);
     } catch (e) { ilog("❌ " + file.name + ": " + (e.message || e)); }
@@ -201,7 +202,7 @@ function playWelcome(user) {
   const el = $("welcomeAnim"); if (!el) return;
   try { if (sessionStorage.getItem("welcomed")) return; sessionStorage.setItem("welcomed", "1"); } catch {}
   const name = ((user.displayName || "").trim().split(" ")[0]) || "Avici";
-  $("waTitle").textContent = `¡Hola, ${name}! 👋`;
+  $("waTitle").textContent = `Hola, ${name}.`;
   const inner = el.querySelector(".wa-inner");
   const emo = ["✨", "⭐", "💫", "🩺", "🧠", "💉"];
   for (let i = 0; i < 22; i++) { const s = document.createElement("span"); s.className = "wa-spark"; s.textContent = emo[i % emo.length]; s.style.left = Math.random() * 100 + "%"; s.style.top = Math.random() * 100 + "%"; s.style.fontSize = (0.8 + Math.random() * 1.6) + "rem"; s.style.animationDelay = (Math.random() * 1.3) + "s"; inner.appendChild(s); }
@@ -212,7 +213,13 @@ function playWelcome(user) {
   el.onclick = () => { clearTimeout(t); close(); };
 }
 function initStudy(user) {
-  if (studyInit) { return; } studyInit = true;
+  if (studyInit) {
+    curChatId = null; chats = []; chatHistory = [];
+    startChats(user); startNotes(user);
+    selectBook($("bookSel").value);
+    return;
+  }
+  studyInit = true;
   playWelcome(user);
   const sel = $("bookSel"); sel.innerHTML = BOOKS.map(b => `<option value="${b.id}">${esc(b.title)}</option>`).join("");
   sel.addEventListener("change", () => selectBook(sel.value));
@@ -227,6 +234,7 @@ function initStudy(user) {
   $("chatSel") && ($("chatSel").onchange = () => loadChat($("chatSel").value));
   $("chatNew") && ($("chatNew").onclick = newChat);
   $("chatDel") && ($("chatDel").onclick = deleteChat);
+  document.querySelectorAll("[data-chat-prompt]").forEach(btn => btn.onclick = () => { $("chatInput").value = btn.dataset.chatPrompt || ""; $("chatInput").focus(); });
   startChats(user);
   // notes
   $("noteAdd").onclick = addNote; startNotes(user);
@@ -237,16 +245,18 @@ function initStudy(user) {
   selectBook(sel.value);
 }
 function switchTab(tab) {
-  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  document.querySelectorAll(".tabs button").forEach(b => { const active = b.dataset.tab === tab; b.classList.toggle("active", active); b.setAttribute("aria-current", active ? "page" : "false"); });
   document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
   $("panel-" + tab).classList.add("active");
 }
 
 async function selectBook(bookId) {
-  book = null; bookIndex = null; course = null;
+  book = null; bookIndex = null; course = null; curLesson = null; pendingSel = ""; clearSelBanner();
   show("lessonView", false); show("courseHome", true);
   $("courseHome").innerHTML = ""; $("pageContent").textContent = "";
   await loadBookData(bookId);
+  if (!book) return;
+  refreshChatPicker();
   await loadProgress(bookId);
   await loadCourse(bookId);
 }
@@ -255,16 +265,21 @@ async function loadBookData(bookId) {
   show("bookLoading", true); $("bookLoadingTxt").textContent = "Cargando libro…";
   try {
     const cache = await idb(); let data = await cache.get(bookId);
-    if (!data || !data.pages) {
-      const meta = await getDoc(doc(db, "books", bookId));
-      if (!meta.exists()) { show("bookLoading", false); return; }
-      const m = meta.data();
+    let meta = null;
+    try { meta = await getDoc(doc(db, "books", bookId)); }
+    catch (e) { if (!data || !data.pages) throw e; }
+    if (meta && !meta.exists()) { show("bookLoading", false); return; }
+    const m = meta ? meta.data() : null;
+    const metaVersion = m ? (m.contentVersion || (m.updatedAt?.toMillis ? m.updatedAt.toMillis() : null) || `legacy:${m.pageCount || 0}:${m.bundleCount || 0}`) : data?.cacheVersion;
+    if (!data || !data.pages || (metaVersion && data.cacheVersion !== metaVersion)) {
       $("bookLoadingTxt").textContent = `Descargando ${m.title}… (una sola vez)`;
       const bs = await getDocs(collection(db, "books", bookId, "bundles"));
       const arr = []; bs.forEach(d => arr.push(d.data())); arr.sort((a, b) => a.i - b.i);
-      data = { id: bookId, title: m.title, pages: JSON.parse(arr.map(x => x.data).join("")) };
+      if (!arr.length) throw new Error("El libro todavía no tiene contenido importado.");
+      data = { id: bookId, title: m.title, pages: JSON.parse(arr.map(x => x.data).join("")), cacheVersion: metaVersion, contentVersion: m.contentVersion || null };
       await cache.put(bookId, data);
     }
+    if (m) { data.title = m.title || data.title; data.contentVersion = m.contentVersion || null; data.cacheVersion = metaVersion; }
     book = data;
     $("bookLoadingTxt").textContent = "Preparando buscador…";
     bookIndex = buildIndex(book.pages);
@@ -290,9 +305,21 @@ function search(idx, qStr, k = 8, pageRange) {
   arr.sort((a, b) => b[0] - a[0]);
   return arr.slice(0, k).map(([s, i]) => idx.chunks[i]);
 }
+function diverseSearch(idx, qStr, k = 8, pageRange) {
+  const ranked = search(idx, qStr, Math.max(k * 4, k), pageRange);
+  const perPage = new Map(), picked = [];
+  for (const item of ranked) {
+    const count = perPage.get(item.page) || 0;
+    if (count >= 2) continue;
+    picked.push(item); perPage.set(item.page, count + 1);
+    if (picked.length >= k) break;
+  }
+  if (picked.length < k) for (const item of ranked) { if (!picked.includes(item)) picked.push(item); if (picked.length >= k) break; }
+  return picked;
+}
 function passagesForRange(pageStart, pageEnd, topicStr, k = 12) {
   if (!bookIndex) return [];
-  let res = search(bookIndex, topicStr || "", k, [pageStart || 1, pageEnd || (book ? book.pages.length : 1)]);
+  let res = diverseSearch(bookIndex, topicStr || "", k, [pageStart || 1, pageEnd || (book ? book.pages.length : 1)]);
   if (res.length < 4) { // fallback: primeras chunks del rango
     res = bookIndex.chunks.filter(c => c.page >= (pageStart || 1) && c.page <= (pageEnd || 1)).slice(0, k);
   }
@@ -332,7 +359,9 @@ async function loadCourse(bookId) {
   const home = $("courseHome"); home.innerHTML = `<div class="spinner"></div>`;
   try {
     const snap = await getDoc(doc(db, "books", bookId, "course", "main"));
-    if (snap.exists()) { course = snap.data().data; renderMap(bookId); }
+    const cached = snap.exists() ? snap.data() : null;
+    const cacheIsCurrent = cached && (!book?.contentVersion || cached.sourceVersion === book.contentVersion);
+    if (cacheIsCurrent) { course = cached.data; renderMap(bookId); }
     else {
       course = null;
       home.innerHTML = isAdmin
@@ -352,7 +381,7 @@ async function generateCourse() {
     const data = await apiChat({ task: "curriculum", bookTitle: book.title, passages, mode: "flash" });
     const c = data.result;
     if (!c || !c.units) throw new Error("El curso no vino con el formato esperado.");
-    await setDoc(doc(db, "books", book.id, "course", "main"), { data: c, createdAt: serverTimestamp(), by: curUser.email });
+    await setDoc(doc(db, "books", book.id, "course", "main"), { data: c, sourceVersion: book.contentVersion || null, createdAt: serverTimestamp(), by: curUser.email });
     course = c; toast("¡Curso generado! 🎓"); renderMap(book.id);
   } catch (e) { setg("❌ " + (e.message || e)); toast("No se pudo generar: " + (e.message || e)); }
 }
@@ -365,16 +394,16 @@ function renderMap(bookId) {
   units.forEach((u, ui) => (u.lessons || []).forEach((l, li) => { total++; if (done[lessonId(ui, li)]) doneCount++; }));
   const pct = total ? Math.round(doneCount / total * 100) : 0;
   const lvl = progress.level || 1, xp = progress.xp || 0, streak = progress.streak || 0;
-  let html = `<div class="courseHead"><h2>🎓 ${esc(course.title || book.title)}</h2><div class="progbar"><div style="width:${pct}%"></div></div><div class="progtxt">${doneCount}/${total} lecciones · ${pct}%</div></div>`;
-  html += `<div class="stats"><span>🏆 Nivel ${lvl}</span><span>✨ ${xp} XP</span><span>🔥 ${streak} día${streak === 1 ? "" : "s"}</span></div>`;
+  let html = `<div class="courseHead"><h2>${esc(course.title || book.title)}</h2><div class="progbar"><div style="width:${pct}%"></div></div><div class="progtxt">${doneCount}/${total} lecciones · ${pct}% completado</div></div>`;
+  html += `<div class="stats"><span>Nivel ${lvl}</span><span>${xp} XP</span><span>Racha ${streak} día${streak === 1 ? "" : "s"}</span></div>`;
   const bs = (progress.badges || []).map(b => BADGE[b]).filter(Boolean);
   if (bs.length) html += `<div class="badges">${bs.map(b => `<span class="badge2">${b.emoji} ${b.label}</span>`).join("")}</div>`;
   if (isAdmin) html += `<button class="btn btn-ghost btn-sm" id="regenCourse" style="margin-bottom:12px">🔁 Regenerar curso</button>`;
   units.forEach((u, ui) => {
-    html += `<div class="unit"><div class="unit-h">${u.emoji || "📚"} <b>${esc(u.title)}</b></div><div class="lessons">`;
+    html += `<div class="unit"><div class="unit-h"><span class="unit-code">${String(ui + 1).padStart(2, "0")}</span><b>${esc(u.title)}</b></div><div class="lessons">`;
     (u.lessons || []).forEach((l, li) => {
       const d = done[lessonId(ui, li)];
-      html += `<div class="lesson-item" data-u="${ui}" data-l="${li}"><span class="chk">${d ? "✅" : "▶️"}</span><div class="li-txt"><b>${esc(l.title)}</b><span>${esc(l.objective || "")}</span></div></div>`;
+      html += `<div class="lesson-item" data-u="${ui}" data-l="${li}"><span class="chk">${d ? "✓" : String(li + 1).padStart(2, "0")}</span><div class="li-txt"><b>${esc(l.title)}</b><span>${esc(l.objective || "")}</span></div></div>`;
     });
     html += `</div></div>`;
   });
@@ -386,19 +415,20 @@ function renderMap(bookId) {
 async function openLesson(ui, li) {
   const u = course.units[ui]; const l = u.lessons[li]; curLesson = { ui, li, l, u };
   show("courseHome", false); show("lessonView", true);
-  $("lessonTitle").innerHTML = `${u.emoji || "📚"} ${esc(l.title)}`;
+  $("lessonTitle").textContent = l.title;
   $("lessonObjective").textContent = l.objective || "";
   const body = $("lessonBody"); body.innerHTML = `<div class="spinner"></div><p style="text-align:center;color:#8a9aa4">Preparando tu lección con IA… ✨</p>`;
   const lid = lessonId(ui, li);
   try {
     let lesson = null;
     const cacheSnap = await getDoc(doc(db, "books", book.id, "lessons", lid));
-    if (cacheSnap.exists()) lesson = cacheSnap.data().data;
+    const cached = cacheSnap.exists() ? cacheSnap.data() : null;
+    if (cached && (!book.contentVersion || cached.sourceVersion === book.contentVersion)) lesson = cached.data;
     if (!lesson) {
       const passages = passagesForRange(l.pageStart, l.pageEnd, (l.title + " " + (l.topics || []).join(" ")));
       const data = await apiChat({ task: "lesson", bookTitle: book.title, passages, mode: "flash", meta: { title: l.title, objective: l.objective } });
       lesson = data.result;
-      try { await setDoc(doc(db, "books", book.id, "lessons", lid), { data: lesson, createdAt: serverTimestamp(), by: curUser.email }); } catch {}
+      try { await setDoc(doc(db, "books", book.id, "lessons", lid), { data: lesson, sourceVersion: book.contentVersion || null, createdAt: serverTimestamp(), by: curUser.email }); } catch {}
     }
     curLesson.data = lesson; renderLessonSection("leccion");
   } catch (e) { body.innerHTML = `<div class="empty">No se pudo generar la lección: ${esc(e.message)}</div>`; }
@@ -493,12 +523,18 @@ async function renderContrast() {
   try {
     let txt = null, sources = [];
     const snap = await getDoc(doc(db, "books", book.id, "contrast", cid));
-    if (snap.exists()) { txt = snap.data().text; sources = snap.data().sources || []; }
+    if (snap.exists()) {
+      const cached = snap.data();
+      const created = cached.createdAt?.toMillis ? cached.createdAt.toMillis() : 0;
+      const fresh = created && Date.now() - created < 7 * 24 * 60 * 60 * 1000;
+      const sameBook = !book.contentVersion || cached.sourceVersion === book.contentVersion;
+      if (fresh && sameBook) { txt = cached.text; sources = cached.sources || []; }
+    }
     if (!txt) {
       const passages = passagesForRange(l.pageStart, l.pageEnd, l.title);
       const data = await apiResearch({ topic: l.title, bookTitle: book.title, passages });
       txt = data.answer; sources = data.sources || [];
-      try { await setDoc(doc(db, "books", book.id, "contrast", cid), { text: txt, sources, createdAt: serverTimestamp() }); } catch {}
+      try { await setDoc(doc(db, "books", book.id, "contrast", cid), { text: txt, sources, sourceVersion: book.contentVersion || null, createdAt: serverTimestamp() }); } catch {}
     }
     const srcHtml = sources.length ? `<div class="sources"><b>🔗 Fuentes consultadas (en vivo):</b>${sources.map(s => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)} (${esc(s.lang || "")})</a>`).join("")}</div>` : "";
     body.innerHTML = `<div class="lesson-content contrast">${md(txt)}</div>${srcHtml}<p class="disclaimer">🌐 Investigación en vivo (Wikipedia ES/EN) contrastada con el libro por IA. Ante dudas clínicas, verificá siempre con fuentes oficiales.</p><div style="margin-top:10px"><button class="btn btn-ghost btn-sm" id="reContrast">🔄 Investigar de nuevo</button></div>`;
@@ -536,26 +572,35 @@ async function markDone(ui, li, score) {
 }
 
 /* ---------------- CHAT (multi-chat + caché) ---------------- */
-let curChatId = null, chats = [];
+const CHAT_CACHE_VERSION = "v3";
+const CHAT_CACHE_TTL = 14 * 24 * 60 * 60 * 1000;
+let curChatId = null, chats = [], chatBusy = false;
+function setChatSignal(text, state = "") { const el = $("chatSignal"); if (!el) return; el.textContent = text; el.dataset.state = state; }
 function addMsg(role, html, cls = "") { const d = document.createElement("div"); d.className = "msg " + role + (cls ? " " + cls : ""); d.innerHTML = html; $("chatMsgs").appendChild(d); $("chatMsgs").scrollTop = $("chatMsgs").scrollHeight; wireCites(d); return d; }
 function renderChatMessages() {
   const box = $("chatMsgs"); box.innerHTML = "";
-  if (!chatHistory.length) { box.innerHTML = `<div class="empty" style="padding:26px 16px">¡Hola! Soy <b>el Profe</b> 🩺✨<br>Preguntame lo que quieras del libro: un tema, una duda, "explicame esto fácil", lo que se te ocurra. 🧠</div>`; return; }
+  if (!chatHistory.length) { box.innerHTML = `<div class="empty"><b>La memoria está limpia.</b><br>Traé una duda, una relación clínica o algo que quieras entender de verdad.</div>`; return; }
   chatHistory.forEach(m => addMsg(m.role === "assistant" ? "bot" : "user", m.role === "assistant" ? md(m.content) : esc(m.content)));
 }
 function startChats(user) {
   const col = collection(db, "users", user.uid, "chats");
   unsubChats = onSnapshot(query(col, orderBy("updatedAt", "desc")), qs => {
     chats = []; qs.forEach(d => chats.push({ id: d.id, ...d.data() }));
-    const selEl = $("chatSel"); if (!selEl) return;
-    selEl.innerHTML = chats.length ? chats.map(c => `<option value="${c.id}">${esc(c.title || "Chat")}</option>`).join("") : `<option value="">✨ Nuevo chat</option>`;
-    if (curChatId && chats.some(c => c.id === curChatId)) { selEl.value = curChatId; }
-    else if (chats.length) { curChatId = chats[0].id; selEl.value = curChatId; chatHistory = (chats[0].messages || []).slice(); renderChatMessages(); }
-    else { curChatId = null; chatHistory = []; renderChatMessages(); }
+    refreshChatPicker();
   }, () => {});
 }
-function loadChat(id) { const c = chats.find(x => x.id === id); curChatId = id || null; chatHistory = c ? (c.messages || []).slice() : []; renderChatMessages(); }
-function newChat() { curChatId = null; chatHistory = []; renderChatMessages(); $("chatInput") && $("chatInput").focus(); toast("Nuevo chat ✏️"); }
+function chatsForCurrentBook() { return book ? chats.filter(c => !c.bookId || c.bookId === book.id) : chats; }
+function refreshChatPicker() {
+  const selEl = $("chatSel"); if (!selEl) return;
+  const available = chatsForCurrentBook();
+  selEl.innerHTML = available.length ? available.map(c => `<option value="${c.id}">${esc(c.title || "Conversación")}</option>`).join("") : `<option value="">Nueva conversación</option>`;
+  const current = available.find(c => c.id === curChatId);
+  if (current) { selEl.value = current.id; return; }
+  if (available.length) { loadChat(available[0].id); selEl.value = available[0].id; }
+  else { curChatId = null; chatHistory = []; renderChatMessages(); setChatSignal("Memoria lista", "ready"); }
+}
+function loadChat(id) { const c = chats.find(x => x.id === id); curChatId = c ? c.id : null; chatHistory = c ? (c.messages || []).slice() : []; renderChatMessages(); setChatSignal(c ? "Contexto recuperado" : "Memoria lista", "ready"); }
+function newChat() { curChatId = null; chatHistory = []; renderChatMessages(); setChatSignal("Nueva memoria", "ready"); $("chatInput") && $("chatInput").focus(); toast("Nueva conversación"); }
 async function deleteChat() {
   if (!curChatId) { chatHistory = []; renderChatMessages(); return; }
   const id = curChatId; try { await deleteDoc(doc(db, "users", curUser.uid, "chats", id)); } catch {}
@@ -570,7 +615,27 @@ async function persistChat() {
     else { await setDoc(doc(db, "users", curUser.uid, "chats", curChatId), data, { merge: true }); }
   } catch {}
 }
+function cacheKeyForChat(question, mode) {
+  const sourceVersion = book?.contentVersion || book?.cacheVersion || "legacy";
+  const userScope = curUser?.uid || "anonymous";
+  return `chatc|${CHAT_CACHE_VERSION}|${userScope}|${book.id}|${sourceVersion}|${mode}|${question.toLowerCase()}`;
+}
+function cachedChatAnswer(key) {
+  try {
+    const raw = localStorage.getItem(key); if (!raw) return null;
+    const item = JSON.parse(raw);
+    if (!item || typeof item.answer !== "string" || Date.now() - item.createdAt > CHAT_CACHE_TTL) { localStorage.removeItem(key); return null; }
+    return item.answer;
+  } catch { return null; }
+}
+function storeChatAnswer(key, answer) { try { localStorage.setItem(key, JSON.stringify({ answer, createdAt: Date.now() })); } catch {} }
+function retrievalQuery(question, selectedText) {
+  const recent = chatHistory.slice(-8).map(m => String(m.content || "").slice(0, m.role === "assistant" ? 650 : 1000)).join(" ");
+  const lessonContext = curLesson ? `${curLesson.l.title} ${(curLesson.l.topics || []).join(" ")}` : "";
+  return [lessonContext, recent, selectedText, question].filter(Boolean).join(" ");
+}
 async function sendChat() {
+  if (chatBusy) return;
   const q = $("chatInput").value.trim();
   if (!q && !pendingSel) return;
   if (!book) { toast("Elegí un libro."); return; }
@@ -579,21 +644,26 @@ async function sendChat() {
   addMsg("user", (selText ? `📌 <i>"${esc(selText.slice(0, 120))}"</i><br>` : "") + esc(q || "Explicame esto."));
   $("chatInput").value = "";
   // caché para ahorrar tokens: preguntas sueltas (primer mensaje, sin selección)
-  const cacheKey = (!selText && chatHistory.length === 0) ? ("chatc|" + book.id + "|" + mode + "|" + q.toLowerCase()) : null;
-  if (cacheKey) { const hit = localStorage.getItem(cacheKey); if (hit) { addMsg("bot", md(hit)); chatHistory.push({ role: "user", content: q }, { role: "assistant", content: hit }); persistChat(); return; } }
-  const thinking = addMsg("bot", `<span class="think dots">Pensando (${mode === "pro" ? "Pro 🧠" : "Flash ⚡"})</span>`, "think");
+  const cacheKey = (!selText && chatHistory.length === 0) ? cacheKeyForChat(q, mode) : null;
+  const cached = cacheKey ? cachedChatAnswer(cacheKey) : null;
+  if (cached) { addMsg("bot", md(cached)); chatHistory.push({ role: "user", content: q }, { role: "assistant", content: cached }); setChatSignal("Respuesta local · 0 tokens", "cached"); persistChat(); return; }
+  chatBusy = true; $("chatSend").disabled = true; $("chatInput").setAttribute("aria-busy", "true"); setChatSignal("Razonando con el libro", "thinking");
+  const thinking = addMsg("bot", `<span class="think dots">Procesando · ${mode === "pro" ? "V4 Pro" : "V4 Flash"}</span>`, "think");
   try {
-    const prevUser = chatHistory.filter(m => m.role === "user").slice(-1)[0];
-    const qExpanded = (q + " " + selText + " " + (curLesson ? curLesson.l.title + " " + (curLesson.l.topics || []).join(" ") : "") + " " + (prevUser ? prevUser.content : "")).trim();
-    const passages = search(bookIndex, qExpanded, 14).map(p => ({ page: p.page, printed: p.printed, text: p.text }));
-    const data = await apiChat({ task: "chat", bookTitle: book.title, passages, question: q, selectedText: selText, history: chatHistory.slice(-8), mode });
+    const qExpanded = retrievalQuery(q, selText);
+    const passages = diverseSearch(bookIndex, qExpanded, 14).map(p => ({ page: p.page, printed: p.printed, text: p.text }));
+    const data = await apiChat({ task: "chat", bookTitle: book.title, passages, question: q, selectedText: selText, history: chatHistory.slice(-20), mode });
     thinking.remove();
     const ans = data.answer || "(sin respuesta)"; addMsg("bot", md(ans));
     chatHistory.push({ role: "user", content: (selText ? `[fragmento: ${selText.slice(0, 300)}] ` : "") + (q || "Explicame esto.") });
     chatHistory.push({ role: "assistant", content: ans });
-    if (cacheKey) { try { localStorage.setItem(cacheKey, ans); } catch {} }
+    if (cacheKey) storeChatAnswer(cacheKey, ans);
+    const hit = Number(data.usage?.prompt_cache_hit_tokens || 0), miss = Number(data.usage?.prompt_cache_miss_tokens || 0);
+    const cachePct = hit + miss ? Math.round(hit / (hit + miss) * 100) : null;
+    setChatSignal(`${mode === "pro" ? "V4 Pro" : "V4 Flash"}${cachePct == null ? "" : ` · caché ${cachePct}%`}`, "ready");
     persistChat();
-  } catch (e) { thinking.remove(); addMsg("bot", "⚠️ " + esc(e.message || e), "think"); }
+  } catch (e) { thinking.remove(); addMsg("bot", "⚠️ " + esc(e.message || e), "think"); if (!$("chatInput").value) $("chatInput").value = q; setChatSignal("No se pudo responder", "error"); }
+  finally { chatBusy = false; $("chatSend").disabled = false; $("chatInput").removeAttribute("aria-busy"); }
 }
 
 /* ---------------- NOTAS ---------------- */
@@ -625,7 +695,7 @@ function clearSelBanner() { const b = $("selBanner"); if (b) b.remove(); }
 function showSelBanner(text) {
   clearSelBanner();
   const div = document.createElement("div"); div.id = "selBanner";
-  div.style.cssText = "background:#eef7f5;border:1px dashed var(--mint);border-radius:10px;padding:8px 10px;margin-bottom:8px;font-size:.82rem;color:#3a5a6b;display:flex;gap:8px;align-items:center";
+  div.className = "selection-banner";
   div.innerHTML = `<span style="flex:1">📌 Sobre: "${esc(text.slice(0, 90))}${text.length > 90 ? "…" : ""}"</span><button style="border:none;background:transparent;cursor:pointer;font-weight:800;color:#e35d6a">✕</button>`;
   div.querySelector("button").onclick = () => { pendingSel = ""; clearSelBanner(); };
   $("panel-chat").insertBefore(div, $("chatMsgs"));

@@ -10,6 +10,7 @@
 
 Una app web (PWA instalable) donde una estudiante entra con su Google, un admin la aprueba, y accede a un **curso completo generado por IA a partir de cada libro**:
 
+- 🧬 **Neural Study Theatre**: una interfaz clínica inmersiva, responsive y accesible, pensada como sala de control de estudio en vez de un dashboard genérico.
 - 🎓 **Cursos** por libro: unidades → lecciones, ordenadas de lo básico a lo avanzado.
 - 📘 **Lecciones didácticas** (explicación + conceptos clave) que **citan la página exacta** del libro para verificar.
 - 🎮 **Juegos**: quiz de opción múltiple, "unir conceptos", flashcards.
@@ -86,7 +87,7 @@ pagina-avici/
 - **Login con Google** (Firebase). Solo usuarios **aprobados** por el admin acceden al contenido.
 - **Admin:** `fundacionsocial@gimnasioemocionalmb.com` (aprueba/rechaza, importa libros, genera cursos).
 - **Reglas de Firestore:** cada quien lee lo suyo; los libros/cursos solo los ven aprobados; solo el admin escribe libros/cursos.
-- **API key de DeepSeek:** vive **solo** en Vercel (`DEEPSEEK_API_KEY`), nunca en el cliente ni en el repo. Las funciones verifican el ID token de Firebase antes de llamar a DeepSeek (protege el gasto).
+- **API key de DeepSeek:** vive **solo** en Vercel (`DEEPSEEK_API_KEY`), nunca en el cliente ni en el repo. Las funciones verifican el ID token de Firebase y el estado aprobado antes de llamar a DeepSeek; la comprobación falla cerrada ante errores de red (protege acceso y gasto).
 - El `firebaseConfig` que aparece en el código es **público por diseño** (es config de cliente, no es un secreto).
 
 ---
@@ -109,10 +110,29 @@ pagina-avici/
 
 1. **Currículum:** desde el índice del libro, DeepSeek diseña unidades → lecciones (una vez, se cachea).
 2. **Lección:** al abrirla, se recuperan los fragmentos relevantes (BM25) del rango de páginas y DeepSeek arma explicación + quiz + flashcards + conceptos (se cachea).
-3. **Chat:** BM25 recupera ~14 fragmentos + contexto de la lección/historial → DeepSeek responde citando páginas.
-4. **Mundo hoy:** Wikipedia en vivo + fragmentos del libro → DeepSeek contrasta (se cachea).
+3. **Chat:** BM25 recupera 14 fragmentos diversificados por página y expande la consulta con la lección y la conversación reciente. DeepSeek recibe hasta 10 rondas de historial y responde citando páginas.
+4. **Mundo hoy:** Wikipedia en vivo + fragmentos del libro → DeepSeek contrasta; el resultado se renueva como máximo cada 7 días o manualmente.
 
-**Ahorro de tokens:** cursos/lecciones/contrastes se **cachean en Firestore** (no se regeneran); el chat cachea respuestas repetidas en el dispositivo; y DeepSeek reutiliza contexto por su cuenta.
+**Memoria real:** cada conversación guarda sus últimos 40 mensajes en Firestore, se restaura entre dispositivos y queda vinculada al libro en el que nació. El modelo recibe los últimos 20 mensajes (10 rondas) con límites de tamaño para conservar continuidad sin permitir prompts gigantes.
+
+**Caché con invalidación:**
+
+- El libro se guarda en IndexedDB y se compara con su `contentVersion`; una importación nueva invalida automáticamente la copia vieja.
+- Currículo, lecciones y contrastes llevan la versión del libro que los originó, de modo que nunca se mezclan con una edición nueva.
+- Una pregunta inicial idéntica puede reutilizar una respuesta local durante 14 días. La clave incluye usuario, libro, versión y modo para evitar cruces o respuestas obsoletas.
+- DeepSeek reutiliza automáticamente prefijos de contexto y AVICI muestra el porcentaje de *cache hit* devuelto por la API. Las peticiones incluyen un `user_id` opaco para aislar el KV cache por estudiante.
+
+### Resultado de la auditoría del bot
+
+El Profe sí conserva contexto, usa recuperación sobre el libro y aprovecha caché en cliente, Firestore y proveedor. La auditoría además endureció estos puntos:
+
+- acceso a la IA **fail-closed**: si no se puede comprobar la aprobación, no se autoriza el gasto;
+- historial filtrado a roles `user`/`assistant`, con límites de cantidad y longitud;
+- recuperación más diversa y consciente de preguntas de seguimiento;
+- cachés versionadas, con TTL donde el contenido pretende estar actualizado;
+- conversaciones aisladas por libro y caché local aislada por usuario.
+
+**Límites honestos:** la recuperación sigue siendo léxica (BM25), no vectorial; “Mundo hoy” usa Wikipedia y sirve para orientación, no reemplaza guías clínicas o bases como PubMed; y la respuesta todavía no se transmite por streaming. Es un tutor sólido y contextual, no una fuente clínica infalible.
 
 ---
 

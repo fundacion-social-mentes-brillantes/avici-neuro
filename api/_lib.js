@@ -26,19 +26,18 @@ export async function verifyUser(req) {
 }
 
 // ¿El usuario es admin o está aprobado? Lee su propio doc en Firestore vía REST
-// con su ID token (las reglas permiten leer el doc propio). Fail-open ante error de red.
+// con su ID token (las reglas permiten leer el doc propio). Ante cualquier error,
+// falla cerrado: un problema de red nunca debe convertirse en permiso de acceso.
 export async function isApproved(user) {
   if ((user.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase()) return true;
   try {
     const url = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents/users/${user.uid}`;
     const r = await fetch(url, { headers: { Authorization: `Bearer ${user.token}` } });
-    if (!r.ok) return true; // fail-open: el token ya es válido de este proyecto
+    if (!r.ok) return false;
     const d = await r.json();
     const status = d?.fields?.status?.stringValue;
     return status === "approved";
-  } catch {
-    return true;
-  }
+  } catch { return false; }
 }
 
 export function readBody(req) {
