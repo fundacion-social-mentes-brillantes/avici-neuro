@@ -4,11 +4,13 @@
 
 **🌐 En vivo:** https://pagina-avici.vercel.app
 
+**✅ Estado verificado (30 de julio de 2026):** producción · 3 libros · 137 lecciones · 39 pruebas automatizadas aprobadas
+
 ---
 
 ## ✨ ¿Qué es?
 
-Una app web (PWA instalable) donde una estudiante entra con su Google, un admin la aprueba, y accede a un **curso completo generado por IA a partir de cada libro**:
+Una app web (PWA instalable) donde una estudiante entra con su cuenta de Google, un admin la aprueba y accede a una **ruta curricular diseñada y auditada para cada libro**. Las lecciones interactivas se generan bajo demanda con IA, exclusivamente desde los fragmentos recuperados de la fuente, y se validan antes de mostrarse:
 
 - 🧬 **Neural Study Theatre**: una interfaz clínica inmersiva, responsive y accesible, pensada como sala de control de estudio en vez de un dashboard genérico.
 - ✦ **Marca AF**: el logo fusiona la A de AVICI con una F oculta de Florencia, una curva neural y una línea de precisión quirúrgica.
@@ -37,14 +39,16 @@ Navegador (PWA)
   │     ├─ /api/chat      → DeepSeek: chat, currículum, lección, contraste
   │     ├─ /api/research  → PubMed + DeepSeek + validación de citas: sección "Mundo hoy"
   │     ├─ /api/models    → lista modelos de la cuenta DeepSeek
-  │     └─ /api/book-pdf  → proxy privado con autenticación y rangos HTTP
+  │     ├─ /api/book-pdf  → proxy privado con autenticación y rangos HTTP
+  │     └─ /api/book-data → respaldo textual privado y autenticado
   │
   ├─ Firebase (Google)
   │     ├─ Authentication (Google)
   │     └─ Firestore: usuarios, aprobación, libros, cursos, lecciones, notas, progreso, chats
   │
   ├─ Vercel Blob privado
-  │     └─ PDF originales; solo se entregan a usuarias autenticadas y aprobadas
+  │     ├─ PDF originales; solo se entregan a usuarias autenticadas y aprobadas
+  │     └─ respaldo textual autenticado del Manual del vacunador
   │
   └─ DeepSeek API (v4-pro / v4-flash)  → el modelo de IA (key guardada SOLO en Vercel)
 ```
@@ -69,7 +73,8 @@ Navegador (PWA)
 
 ```
 pagina-avici/
-├─ index.html            # estructura + estilos (inicio, auth, admin, zona de estudio)
+├─ index.html            # estructura de inicio, auth, admin y zona de estudio
+├─ styles.css            # sistema visual responsive de AVICI
 ├─ app.js                # lógica: auth, admin, curso, lector, chat, notas, juegos, gamificación
 ├─ course-catalog.js     # rutas verificadas: Thibodeau + Mazarrasa + Manual del vacunador
 ├─ learning-utils.js     # contrato y validación estricta de lecciones/juegos
@@ -84,6 +89,7 @@ pagina-avici/
 ├─ sw.js                 # service worker (network-first)
 ├─ assets/logo-avici.png # marca principal AF con transparencia real
 ├─ reader-utils.js       # fidelidad y transformación del texto página por página
+├─ test/                 # 39 pruebas de acceso, libros, IA, aprendizaje, lector e investigación
 ├─ vendor/pdfjs/         # visor PDF y recursos locales
 ├─ icon-192.png / icon-512.png / apple-touch-icon.png
 ├─ package.json          # dependencias: jose + pdfjs-dist
@@ -114,7 +120,7 @@ pagina-avici/
 - `users/{uid}/chats/{id}` → `{ title, bookId, messages[] }` (chats múltiples)
 - `books/{bookId}` → `{ title, pageCount, bundleCount }`
 - `books/{bookId}/bundles/{i}` → texto del libro (partido en bloques < 1 MB)
-- `books/{bookId}/course/main` → el currículum generado por IA
+- `books/{bookId}/course/main` → copia persistida de la ruta; las tres fuentes actuales usan un currículo versionado y auditado
 - `books/{bookId}/lessons/{id}` → lecciones generadas (caché)
 - `books/{bookId}/contrast/{id}` → secciones "Mundo hoy" (caché)
 
@@ -123,7 +129,7 @@ pagina-avici/
 ## 🤖 Cómo funciona la IA (y cómo ahorra tokens)
 
 1. **Currículum:** los tres libros incluidos usan una ruta versionada y verificada contra el índice visual del PDF; no dependen de que la IA adivine la estructura.
-2. **Lección:** al abrirla, se recuperan fragmentos del rango exacto del capítulo. DeepSeek arma explicación, objetivos, quiz, flashcards, conceptos y desafío; el servidor bloquea la respuesta si faltan citas, hay opciones ambiguas o los juegos están incompletos. Solo las lecciones validadas entran al caché.
+2. **Lección:** al abrirla, se recuperan fragmentos del rango exacto del capítulo. DeepSeek arma explicación, objetivos, quiz, flashcards, conceptos y desafío. El servidor audita citas, opciones, niveles y seguridad; si encuentra un defecto reparable, devuelve al modelo los errores exactos y las páginas permitidas, corrige el JSON con los mismos fragmentos y vuelve a auditarlo. Solo las lecciones validadas entran al caché.
 3. **Chat:** BM25 recupera 14 fragmentos diversificados por página y expande la consulta con la lección y la conversación reciente. DeepSeek recibe hasta 10 rondas de historial y responde citando páginas.
 4. **Mundo hoy:** DeepSeek traduce el tema a conceptos biomédicos → PubMed recupera literatura → DeepSeek propone el contraste → el servidor descarta cualquier afirmación cuya cita no exista literalmente en el libro o en el resumen. El resultado se renueva cada 3 días o manualmente.
 
@@ -151,11 +157,31 @@ El Profe sí conserva contexto, usa recuperación sobre el libro y aprovecha cac
 - cachés versionadas, con TTL donde el contenido pretende estar actualizado;
 - conversaciones aisladas por libro y caché local aislada por usuario.
 
-**Límites honestos:** la recuperación del libro sigue siendo léxica (BM25), no vectorial; “Mundo hoy” trabaja principalmente con títulos y resúmenes indexados en PubMed, y la validación textual comprueba trazabilidad pero no sustituye una revisión clínica humana ni la lectura completa del artículo. La respuesta todavía no se transmite por streaming. Es un tutor sólido y contextual, no una fuente clínica infalible.
+Al cierre de la integración del Manual del vacunador, la suite automatizada reúne **39 pruebas aprobadas**. También se verificó la aplicación real desplegada en Vercel, tanto en escritorio como en un viewport móvil de **390 × 844 px**: carga del curso, generación de una lección, citas, quiz, conexiones, flashcards, desafío, lector adaptable y salto de página con Enter.
+
+**Límites honestos:** la recuperación del libro sigue siendo léxica (BM25), no vectorial. El chat del Profe no navega libremente por cualquier sitio web; la búsqueda biomédica actualizada y controlada ocurre en **“Mundo hoy”**, principalmente sobre títulos y resúmenes indexados en PubMed. La validación textual comprueba trazabilidad, pero no sustituye una revisión clínica humana ni la lectura completa del artículo. La respuesta todavía no se transmite por streaming. Es un tutor sólido y contextual, no una fuente clínica infalible.
 
 ---
 
 ## 🚀 Desarrollo y despliegue
+
+### Preparar y validar una copia local
+
+```bash
+npm install
+npm test
+npm run check
+```
+
+Para levantar la aplicación completa con sus funciones privadas, usá una sesión autenticada de Vercel:
+
+```bash
+npx vercel link
+npx vercel env pull .env.local
+npx vercel dev
+```
+
+Vercel mostrará la dirección local, normalmente `http://localhost:3000`. Los archivos `.vercel/` y `.env*.local` ya están ignorados por Git: nunca subas claves, tokens ni variables privadas al repositorio.
 
 **Requisitos de entorno (en Vercel → Settings → Environment Variables):**
 - `DEEPSEEK_API_KEY` — **obligatoria** (la key de DeepSeek).
