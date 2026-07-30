@@ -21,9 +21,46 @@ export function sanitizeHistory(history) {
     .map(m => ({ role: m.role, content: m.content.slice(0, MAX_HISTORY_CHARS) }));
 }
 
+export function isHistoricalClinicalRequest(body = {}) {
+  const bookId = String(body.bookId || "").toLowerCase();
+  const bookTitle = String(body.bookTitle || "").toLowerCase();
+  return bookId === "vacunador"
+    || bookTitle.includes("manual del vacunador")
+    || body.meta?.sourceStatus === "historical-clinical";
+}
+
+const ARCHIVE_NOTICE = "\n\n> ⚕️ **Fuente histórica de 2013:** esto sirve para estudiar la edición. Para una decisión real, verificá el Calendario Nacional y los lineamientos vigentes del Ministerio de Salud de Argentina.";
+
+export function protectHistoricalChatAnswer(value) {
+  const answer = String(value || "").trim();
+  const blocks = answer.split(/\n+/).map(block => block.trim()).filter(Boolean);
+  const operational = /\b(dosis|intervalo|esquema|calendario|vía|sitio|indicación|contraindicación|producto|temperatura|cadena de frío|frasco|esavi|anafilaxia|norma|protocolo)\b/iu;
+  const prescriptive = /\b(vigente|actual|debe(?:n)?|corresponde|se (?:recomienda|indica|administra|aplica|conserva|almacena|descarta|notifica)|administrar|aplicar|indicar|vacunar|conservar|almacenar|descartar|notificar)\b/iu;
+  const operationalValue = /\b\d+(?:[.,]\d+)?\s*(?:ml|µg|mcg|mg|°\s*c|grados|horas?|días?|semanas?|meses?)\b/iu;
+  const archiveFrame = /\b(esta edición|edición de 2013|archivo histórico|el manual(?: de 2013)? (?:describe|indica|presenta|señala)|según (?:esta edición|el manual|el libro))\b/iu;
+  const verificationFrame = /\b(verific\w*|comprob\w*|consult\w*|confirm\w*|fuente(?:s)? oficial(?:es)?|calendario nacional|lineamiento(?:s)?|antes de actuar|no (?:aplicar|administrar|indicar|usar|asumir|ejecutar))\b/iu;
+  const unsafe = blocks.some(block => operational.test(block)
+    && (prescriptive.test(block) || operationalValue.test(block))
+    && !archiveFrame.test(block)
+    && !verificationFrame.test(block));
+  if (unsafe) {
+    return `No voy a convertir una pauta clínica de 2013 en una indicación para actuar. Puedo explicarte qué documenta el manual, citando sus páginas, y señalar qué punto debe comprobarse en una fuente oficial.${ARCHIVE_NOTICE}`;
+  }
+  return `${answer || "(sin respuesta)"}${ARCHIVE_NOTICE}`;
+}
+
 export function buildMessages(task, body) {
   const { bookTitle = "el libro", passages = [], question = "", selectedText = "", history = [], meta = {} } = body;
   const ctx = ctxFrom(passages);
+  const historicalClinical = isHistoricalClinicalRequest(body);
+  const archiveLessonRules = historicalClinical ? `
+REGLAS ESPECIALES PARA ESTE ARCHIVO CLÍNICO:
+- La fuente es una edición de ${meta.edition || "2013"}. En el contenido debe aparecer explícitamente "esta edición", "el manual describe" o "según el manual".
+- No uses las palabras "actual", "actualmente", "vigente" ni "hoy" para describir ningún dato del manual.
+- Toda dosis, intervalo, esquema, indicación, contraindicación, producto, temperatura, contacto, dirección, norma o conducta debe estar atribuida de forma inmediata a la edición: "el manual de ${meta.edition || "2013"} indica...".
+- El quiz, las flashcards y el desafío evalúan comprensión documental y detección de qué debe verificarse. Nunca pidas elegir una conducta clínica real como si el manual fuera un protocolo vigente.
+- En el desafío, si hay una persona o caso, la respuesta correcta debe consistir en interpretar lo que dice la edición o identificar qué dato requiere comprobación oficial antes de actuar.
+` : "";
   if (task === "curriculum") {
     return { json: true, messages: [{ role: "system", content:
 `Sos un diseñador instruccional experto en ciencias de la salud. A partir del ÍNDICE/CONTENIDO del libro "${bookTitle}", diseñá un CURSO didáctico completo (ruta de aprendizaje de lo básico a lo avanzado) para una ${AR}
@@ -43,6 +80,7 @@ REGLAS DE FIABILIDAD:
 - El quiz debe comprobar tres niveles: recuerdo, comprensión y aplicación. El caso final puede ser clínico, comunitario o de investigación según el capítulo.
 - El material del libro puede ser antiguo. No lo presentes como recomendación clínica vigente; para eso existe la sección "Mundo hoy".
 - Cuando una frase provenga de datos, calendarios, sistemas sanitarios, tratamientos o consensos de esta edición, escribí "el libro describe", "en esta edición" o "en el período analizado". Está PROHIBIDO llamarlo "actual", "vigente" u "hoy". No actualices el dato por tu cuenta.
+${archiveLessonRules}
 
 Está dirigida a una ${AR}
 Devolvé SOLO JSON válido con esta forma exacta:
@@ -63,6 +101,12 @@ Sé honesto: si no estás seguro, decilo. FRAGMENTOS DEL LIBRO:\n${ctx}` },
   // chat (profe experto, natural, autosuficiente)
   const cleanHistory = sanitizeHistory(history);
   const userMsg = `${selectedText ? `FRAGMENTO QUE SELECCIONÓ AVICI:\n"""${String(selectedText).slice(0, 1500)}"""\n\n` : ""}PREGUNTA ACTUAL:\n${String(question || "Explicame esto.").slice(0, 4000)}\n\nFRAGMENTOS RECUPERADOS DEL LIBRO (referencia; pueden ser incompletos):\n${ctx}`;
+  const archiveChatRules = historicalClinical ? `
+REGLA DE SEGURIDAD DE ESTA FUENTE:
+- Estás leyendo una edición clínica de ${meta.edition || "2013"}. Nombrala como archivo histórico.
+- Si preguntan por dosis, esquemas, intervalos, indicaciones, contraindicaciones, conservación, ESAVI, normas o lugares, explicá primero qué dice el manual con su página, pero no lo presentes como conducta vigente.
+- Para una decisión real, indicá comprobar el Calendario Nacional y los lineamientos actuales del Ministerio de Salud de Argentina. No inventes cuál es la actualización si no fue recuperada de una fuente oficial.
+` : "";
   return { json: false, messages: [
     { role: "system", content:
 `Sos "el Profe": un profesor de anatomía, fisiología y enfermería excepcional —brillante, con calle y muy buena onda— que le enseña a Avici, una ${AR}
@@ -83,6 +127,7 @@ CÓMO ENSEÑÁS:
 - Ajustá el largo a la pregunta (respuestas cortas si la pregunta es corta; no llenes de texto).
 - Precisión médica: no inventes dosis ni datos exactos. En preguntas personales, síntomas, urgencias o medicación, enseñá sin diagnosticar ni prescribir; si hay señales de alarma, indicá atención profesional de forma directa y humana.
 - Protegé la privacidad: no pidas datos clínicos identificables que no hagan falta.
+${archiveChatRules}
 ` },
     ...cleanHistory,
     { role: "user", content: userMsg }
@@ -100,6 +145,7 @@ export default async function handler(req, res) {
   const body = readBody(req);
   const task = ["chat", "curriculum", "lesson", "contrast"].includes(body.task) ? body.task : "chat";
   const mode = body.mode === "flash" ? "flash" : "pro";
+  const historicalClinical = isHistoricalClinicalRequest(body);
   const built = buildMessages(task, body);
 
   const baseUrl = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com";
@@ -130,6 +176,7 @@ export default async function handler(req, res) {
           parsed = normalizeLessonData(parsed, {
             allowedPages: (body.passages || []).map(passage => passage.page),
             timeSensitive: body.meta?.freshness === "revisar-hoy",
+            historicalClinical,
           });
         } catch (error) {
           const detail = error instanceof LessonValidationError ? error.issues.join("; ") : String(error?.message || error);
@@ -139,7 +186,10 @@ export default async function handler(req, res) {
       }
       res.status(200).json({ result: parsed, model, usage: data?.usage || null });
     } else {
-      res.status(200).json({ answer: content || "(sin respuesta)", model, usage: data?.usage || null });
+      const answer = task === "chat" && historicalClinical
+        ? protectHistoricalChatAnswer(content)
+        : content || "(sin respuesta)";
+      res.status(200).json({ answer, model, usage: data?.usage || null });
     }
   } catch (e) {
     res.status(502).json({ error: "Error llamando a DeepSeek: " + String(e).slice(0, 200) });

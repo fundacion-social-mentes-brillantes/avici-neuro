@@ -1,5 +1,5 @@
 /* Service Worker — AVICI PWA (network-first para tener siempre lo último) */
-const CACHE = "avici-v8-course-audit";
+const CACHE = "avici-v9-vaccination-lab";
 const ASSETS = ["/", "/index.html", "/styles.css", "/app.js", "/course-catalog.js", "/learning-utils.js", "/reader-utils.js", "/vendor/pdfjs/pdf.min.mjs", "/vendor/pdfjs/pdf.worker.min.mjs", "/manifest.webmanifest", "/assets/logo-avici.png", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {

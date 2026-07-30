@@ -12,9 +12,14 @@ function responseMock() {
 }
 
 test("el proxy visual solo acepta identificadores de libros conocidos", () => {
-  const env = { BOOK_THIBODEAU_PDF_URL: "https://private/thibodeau.pdf", BOOK_MAZARRASA_PDF_URL: "https://private/mazarrasa.pdf" };
+  const env = {
+    BOOK_THIBODEAU_PDF_URL: "https://private/thibodeau.pdf",
+    BOOK_MAZARRASA_PDF_URL: "https://private/mazarrasa.pdf",
+    BOOK_VACUNADOR_PDF_URL: "https://private/vacunador.pdf",
+  };
   assert.equal(bookUrlFor("thibodeau", env), env.BOOK_THIBODEAU_PDF_URL);
   assert.equal(bookUrlFor("mazarrasa", env), env.BOOK_MAZARRASA_PDF_URL);
+  assert.equal(bookUrlFor("vacunador", env), env.BOOK_VACUNADOR_PDF_URL);
   assert.equal(bookUrlFor("otro", env), null);
 });
 

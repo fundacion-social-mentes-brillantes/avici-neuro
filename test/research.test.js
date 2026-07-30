@@ -27,6 +27,27 @@ test("los temas del curso usan rutas biomédicas estables", () => {
     ["homeostasis", "organism", "physiology"],
     ["physiological stability", "homeostasis", "brain"],
   ]);
+  assert.deepEqual(curatedSearchPlan("Cadena de frío: incidentes y almacenamiento"), [
+    ["vaccine cold chain", "vaccine storage", "immunization"],
+    ["temperature excursion", "vaccine potency", "public health"],
+  ]);
+  assert.deepEqual(curatedSearchPlan("Anafilaxia después de la vacunación"), [
+    ["vaccine anaphylaxis", "emergency management", "immunization"],
+    ["anaphylaxis after vaccination", "vaccine safety", "clinical guideline"],
+  ]);
+  assert.deepEqual(curatedSearchPlan("Vacunas neumocócicas"), [
+    ["pneumococcal vaccine", "immunization", "vaccine effectiveness"],
+    ["pneumococcal vaccine", "vaccine safety", "public health"],
+  ]);
+  assert.deepEqual(curatedSearchPlan("Hepatitis B y BCG"), [
+    ["hepatitis B vaccine", "immunization", "vaccine safety"],
+    ["BCG vaccine", "immunization", "vaccine safety"],
+  ]);
+  assert.deepEqual(curatedSearchPlan("Rabia, fiebre hemorrágica argentina y fiebre amarilla"), [
+    ["rabies vaccine", "immunization", "vaccine safety"],
+    ["Argentine hemorrhagic fever vaccine", "immunization", "vaccine safety"],
+    ["yellow fever vaccine", "immunization", "vaccine safety"],
+  ]);
   assert.equal(curatedSearchPlan("Un tema completamente nuevo").length, 0);
 });
 
@@ -58,6 +79,14 @@ test("se priorizan revisiones y se eliminan artículos duplicados", () => {
   assert.equal(sources[0].pmid, "2");
   assert.equal(sources[0].id, 1);
   assert.equal(sources[0].database, "PubMed");
+});
+
+test("una fuente reciente pesa más que una guía clínica obsoleta", () => {
+  const sources = rankPubmedSources([
+    { pmid: "old", title: "Guía antigua", abstract: "a".repeat(140), journal: "J", year: "2008", doi: "", publicationTypes: ["Practice Guideline"], rank: 0 },
+    { pmid: "new", title: "Revisión reciente", abstract: "b".repeat(140), journal: "J", year: String(new Date().getUTCFullYear()), doi: "", publicationTypes: ["Systematic Review"], rank: 3 },
+  ]);
+  assert.equal(sources[0].pmid, "new");
 });
 
 test("la relevancia distingue títulos centrales de coincidencias aisladas", () => {
@@ -112,4 +141,24 @@ test("si no hay cambio sustentado, el resultado lo declara sin fabricar debate",
   assert.match(answer, /no se pudo demostrar una diferencia fiable/i);
   assert.doesNotMatch(answer, /Qué se discute/);
   assert.match(answer, /\[Fuente 1\]/);
+});
+
+test("el manual histórico bloquea pautas operativas aunque la cita de PubMed exista", () => {
+  const passages = [{ page: 6, text: "El manual presenta un calendario de vacunación para la edición." }];
+  const sources = [{
+    id: 1,
+    abstract: "The current schedule recommends administering a 0.5 mL dose to eligible children after clinical assessment.",
+  }];
+  const raw = {
+    bookSummary: [],
+    currentEvidence: [{
+      text: "La pauta vigente es administrar una dosis de 0,5 mL.",
+      sourceEvidence: [{ sourceId: 1, quote: "The current schedule recommends administering a 0.5 mL dose to eligible children" }],
+    }],
+    changes: [],
+    debates: [],
+    takeaway: null,
+  };
+  const result = validateResearchResult(raw, passages, sources, { historicalClinical: true });
+  assert.equal(result.currentEvidence.length, 0);
 });

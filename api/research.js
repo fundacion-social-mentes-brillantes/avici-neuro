@@ -89,8 +89,11 @@ function evidenceWeight(source) {
   else if (types.includes("review")) type = 25;
   else if (types.includes("clinical trial")) type = 20;
   const year = Number(source.year) || 0;
-  const recency = year >= 2020 ? Math.min(12, year - 2019) : 0;
-  return type + recency + Math.max(0, 24 - source.rank * 3);
+  const currentYear = new Date().getUTCFullYear();
+  const age = year ? Math.max(0, currentYear - year) : 20;
+  const recency = Math.max(0, 35 - age * 5);
+  const stalePenalty = age > 7 ? (age - 7) * 8 : 0;
+  return type + recency - stalePenalty + Math.max(0, 24 - source.rank * 3);
 }
 
 export function rankPubmedSources(sources) {
@@ -162,6 +165,47 @@ function fallbackSearchPlan(topic) {
 export function curatedSearchPlan(topic) {
   const value = normalizeText(topic);
   const has = (...terms) => terms.some(term => value.includes(term));
+  if (has("cadena de frio", "almacenamiento", "termoestabilidad", "frascos abiertos")) return [
+    ["vaccine cold chain", "vaccine storage", "immunization"],
+    ["temperature excursion", "vaccine potency", "public health"],
+  ];
+  if (has("bioseguridad", "cortopunzantes", "residuos", "inyeccion segura")) return [
+    ["injection safety", "immunization", "healthcare workers"],
+    ["sharps injury prevention", "vaccination", "occupational health"],
+  ];
+  if (has("esavi", "vigilancia postvacunacion", "seguridad en vacunas")) return [
+    ["vaccine adverse events", "safety surveillance", "immunization"],
+    ["adverse events following immunization", "pharmacovigilance", "public health"],
+  ];
+  if (has("anafilaxia")) return [
+    ["vaccine anaphylaxis", "emergency management", "immunization"],
+    ["anaphylaxis after vaccination", "vaccine safety", "clinical guideline"],
+  ];
+  if (has("calendario", "adolescentes", "adultos", "embarazo", "puerperio", "personal de salud", "vih")) return [
+    ["immunization schedule", "vaccination policy", "Argentina"],
+    ["vaccination program", "special populations", "public health"],
+  ];
+  const vaccineNames = [
+    ["hepatitis b", "hepatitis B vaccine"], ["bcg", "BCG vaccine"], ["poliomiel", "poliovirus vaccine"],
+    ["pentavalente", "pentavalent vaccine"], ["haemophilus", "Haemophilus influenzae type b vaccine"],
+    ["pertussis", "pertussis vaccine"], ["difteria", "diphtheria vaccine"], ["tetanos", "tetanus vaccine"],
+    ["neumoc", "pneumococcal vaccine"], ["influenza", "influenza vaccine"], ["hepatitis a", "hepatitis A vaccine"],
+    ["triple viral", "measles mumps rubella vaccine"], ["doble viral", "measles rubella vaccine"],
+    ["vph", "human papillomavirus vaccine"], ["papiloma", "human papillomavirus vaccine"],
+    ["rotavirus", "rotavirus vaccine"], ["varicela", "varicella vaccine"],
+    ["meningoc", "meningococcal vaccine"], ["rabia", "rabies vaccine"],
+    ["fiebre hemorragica", "Argentine hemorrhagic fever vaccine"], ["fiebre amarilla", "yellow fever vaccine"],
+  ];
+  const vaccines = [...new Set(vaccineNames.filter(([term]) => value.includes(term)).map(([, name]) => name))];
+  if (vaccines.length > 1) return vaccines.slice(0, 3).map(vaccine => [vaccine, "immunization", "vaccine safety"]);
+  if (vaccines.length === 1) return [
+    [vaccines[0], "immunization", "vaccine effectiveness"],
+    [vaccines[0], "vaccine safety", "public health"],
+  ];
+  if (has("gammaglobulina", "inmunoglobulina", "ppd")) return [
+    ["immunoglobulin prophylaxis", "vaccination", "clinical care"],
+    ["tuberculin skin test", "BCG vaccination", "public health"],
+  ];
   if (has("homeostasia", "homeostasis", "retroalimentacion")) return [
     ["homeostasis", "organism", "physiology"],
     ["physiological stability", "homeostasis", "brain"],
@@ -231,7 +275,7 @@ function buildBookContext(passages) {
 
 export function buildSearchPlanMessages({ topic, objective = "", topics = [], bookContext = "" }) {
   return [
-    { role: "system", content: `Convertí un tema de anatomía, fisiología o enfermería escrito en español en dos búsquedas biomédicas breves para PubMed. No respondas el tema ni afirmes que algo cambió. Devolvé SOLO JSON válido con esta forma exacta: {"queries":[["central topic","specific mechanism","domain context"],["central topic","modern nuance","domain context"]]}. Cada consulta debe tener 3 o 4 conceptos independientes en inglés, ordenados así: los dos primeros identifican específicamente el tema y el último evita resultados de otro dominio (por ejemplo physiology, anatomy, nursing o clinical care). No uses operadores, comillas, fechas ni sintaxis de PubMed.` },
+    { role: "system", content: `Convertí un tema de anatomía, fisiología, enfermería, inmunización o salud pública escrito en español en dos búsquedas biomédicas breves para PubMed. No respondas el tema ni afirmes que algo cambió. Devolvé SOLO JSON válido con esta forma exacta: {"queries":[["central topic","specific mechanism","domain context"],["central topic","modern nuance","domain context"]]}. Cada consulta debe tener 3 o 4 conceptos independientes en inglés, ordenados así: los dos primeros identifican específicamente el tema y el último evita resultados de otro dominio (por ejemplo physiology, anatomy, nursing, immunization, public health o clinical care). No uses operadores, comillas, fechas ni sintaxis de PubMed.` },
     { role: "user", content: `Tema: ${cleanText(topic, 180)}\nObjetivo: ${cleanText(objective, 260)}\nConceptos de la lección: ${cleanText((topics || []).join(", "), 300)}\nFragmentos orientativos del libro:\n${String(bookContext).slice(0, 4200)}` },
   ];
 }
@@ -247,7 +291,9 @@ function buildPubmedTerm(concepts) {
 async function pubmedSearch(concepts) {
   const term = buildPubmedTerm(concepts);
   if (!term) return [];
-  const params = new URLSearchParams({ db: "pubmed", term, retmax: "6", sort: "relevance", retmode: "json", tool: "avici_neural_study" });
+  const firstRecentYear = new Date().getUTCFullYear() - 7;
+  const recentTerm = `${term} AND ("${firstRecentYear}/01/01"[Date - Publication] : "3000"[Date - Publication])`;
+  const params = new URLSearchParams({ db: "pubmed", term: recentTerm, retmax: "6", sort: "relevance", retmode: "json", tool: "avici_neural_study" });
   if (process.env.NCBI_API_KEY) params.set("api_key", process.env.NCBI_API_KEY);
   const response = await fetch(`${PUBMED}/esearch.fcgi?${params}`, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(10000) });
   if (!response.ok) return [];
@@ -274,7 +320,7 @@ export function pubmedTitleMatchCount(source, queries, matchedQueryIndexes) {
 }
 
 export async function findPubmedSources(queries) {
-  const lists = await Promise.all(queries.slice(0, 2).map(query => pubmedSearch(query).catch(() => [])));
+  const lists = await Promise.all(queries.slice(0, 3).map(query => pubmedSearch(query).catch(() => [])));
   const ranks = new Map();
   const matches = new Map();
   lists.forEach((ids, queryIndex) => ids.forEach((id, index) => {
@@ -283,7 +329,7 @@ export async function findPubmedSources(queries) {
     if (!matches.has(id)) matches.set(id, []);
     matches.get(id).push(queryIndex);
   }));
-  const ids = [...ranks.keys()].slice(0, 10);
+  const ids = [...ranks.keys()].slice(0, 15);
   const articles = await fetchPubmedArticles(ids, ranks).catch(() => []);
   const scored = articles.map(source => ({ source, titleMatches: pubmedTitleMatchCount(source, queries, matches.get(source.pmid)) }));
   const strict = scored.filter(item => item.titleMatches >= 2);
@@ -311,7 +357,11 @@ function sourceContext(sources) {
   return sources.map(source => `FUENTE ${source.id} · PubMed PMID ${source.pmid}\nTítulo: ${source.title}\nAño: ${source.year || "sin fecha"}\nRevista: ${source.journal || "sin revista"}\nTipo: ${source.publicationTypes.join(", ") || "artículo"}\nResumen:\n${cleanText(source.abstract, 3500)}`).join("\n\n---\n\n");
 }
 
-export function buildResearchMessages({ topic, bookTitle, bookContext, sources, retrievedAt }) {
+export function buildResearchMessages({ topic, bookTitle, bookContext, sources, retrievedAt, sourceStatus = "" }) {
+  const archiveRules = sourceStatus === "historical-clinical" ? `
+9. El libro es un archivo clínico histórico. PubMed puede respaldar conocimiento biomédico, pero NO determina por sí solo el Calendario Nacional de Vacunación argentino, esquemas operativos, productos disponibles, normativa, cadena de frío local, notificación ESAVI ni direcciones vigentes.
+10. No presentes una dosis, intervalo, esquema, indicación, temperatura, protocolo o norma como vigente. Solo podés describir que una fuente biomédica estudia ese aspecto; la interfaz remitirá a las fuentes oficiales argentinas.
+` : "";
   return [
     { role: "system", content: `Sos un revisor de evidencia biomédica extremadamente conservador. Compará fragmentos del libro con resúmenes reales de PubMed, sin usar conocimiento externo ni completar huecos. Escribí el texto final en español claro.
 
@@ -324,6 +374,7 @@ REGLAS INNEGOCIABLES:
 6. Las citas deben tener entre 6 y 28 palabras, sin puntos suspensivos ni traducción. El texto explicativo sí va en español.
 7. Devolvé SOLO JSON válido, sin Markdown ni comentarios.
 8. Ignorá artículos cuyo objeto de estudio no corresponda directamente al tema de la lección. Una coincidencia aislada de palabras como homeostasis, control, tejido o sistema no alcanza.
+${archiveRules}
 
 FORMATO:
 {
@@ -365,6 +416,7 @@ function validSourceEvidence(value, sourcesById) {
 function validateClaim(value, context, requirements = {}) {
   const text = cleanText(value?.text, 760);
   if (!text) return null;
+  if (requirements.nonOperational && isOperationalPolicyClaim(text)) return null;
   const bookEvidence = validBookEvidence(value?.bookEvidence, context.passagesByPage);
   const sourceEvidence = validSourceEvidence(value?.sourceEvidence, context.sourcesById);
   if (requirements.book && !bookEvidence) return null;
@@ -373,7 +425,14 @@ function validateClaim(value, context, requirements = {}) {
   return { text, bookEvidence, sourceEvidence, sourceIds: sourceEvidence.map(item => item.sourceId) };
 }
 
-export function validateResearchResult(raw, passages, sources) {
+function isOperationalPolicyClaim(text) {
+  const operational = /\b(dosis|intervalo|esquema|calendario|vía|sitio de aplicación|indicación|contraindicación|producto|temperatura|cadena de frío|frasco|esavi|notificación|norma|protocolo)\b/iu.test(text);
+  const prescriptive = /\b(vigente|actual|debe(?:n)?|corresponde|se (?:recomienda|indica|administra|aplica|conserva|almacena|descarta|notifica)|administrar|aplicar|indicar|vacunar|conservar|almacenar|descartar|notificar)\b/iu.test(text);
+  const operationalValue = /\b\d+(?:[.,]\d+)?\s*(?:ml|µg|mcg|mg|°\s*c|grados|horas?|días?|semanas?|meses?)\b/iu.test(text);
+  return operational && (prescriptive || operationalValue);
+}
+
+export function validateResearchResult(raw, passages, sources, { historicalClinical = false } = {}) {
   const passagesByPage = new Map();
   for (const passage of (Array.isArray(passages) ? passages : []).slice(0, 8)) {
     const page = Number(passage?.page);
@@ -382,12 +441,16 @@ export function validateResearchResult(raw, passages, sources) {
   const sourcesById = new Map(sources.map(source => [source.id, source]));
   const context = { passagesByPage, sourcesById };
   const collect = (items, max, requirements) => (Array.isArray(items) ? items : []).slice(0, max).map(item => validateClaim(item, context, requirements)).filter(Boolean);
+  const currentRequirements = historicalClinical ? { source: true, nonOperational: true } : { source: true };
+  const comparisonRequirements = historicalClinical
+    ? { book: true, source: true, nonOperational: true }
+    : { book: true, source: true };
   return {
     bookSummary: collect(raw?.bookSummary, 4, { book: true }),
-    currentEvidence: collect(raw?.currentEvidence, 5, { source: true }),
-    changes: collect(raw?.changes, 3, { book: true, source: true }),
-    debates: collect(raw?.debates, 3, { book: true, source: true }),
-    takeaway: validateClaim(raw?.takeaway, context, { book: true, source: true }),
+    currentEvidence: collect(raw?.currentEvidence, 5, currentRequirements),
+    changes: collect(raw?.changes, 3, comparisonRequirements),
+    debates: collect(raw?.debates, 3, comparisonRequirements),
+    takeaway: validateClaim(raw?.takeaway, context, comparisonRequirements),
   };
 }
 
@@ -453,6 +516,7 @@ export default async function handler(req, res) {
   const topic = cleanText(body.topic, 180);
   const bookTitle = cleanText(body.bookTitle || "el libro", 180);
   const objective = cleanText(body.objective, 260);
+  const sourceStatus = cleanText(body.sourceStatus, 60);
   const topics = Array.isArray(body.topics) ? body.topics.slice(0, 12).map(item => cleanText(item, 80)) : [];
   const passages = Array.isArray(body.passages) ? body.passages.slice(0, 8).map(p => ({ page: Number(p?.page) || 0, printed: cleanText(p?.printed, 20), text: cleanText(p?.text, 1400) })).filter(p => p.page && p.text) : [];
   if (!topic) { res.status(400).json({ error: "Falta el tema a investigar." }); return; }
@@ -471,25 +535,27 @@ export default async function handler(req, res) {
   const sources = await findPubmedSources(queries).catch(() => []);
   if (!sources.length) {
     const empty = emptyResult("No encontré literatura de PubMed suficientemente relevante para este tema. Para no inventar, no genero un contraste.");
-    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v8" });
+    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v9" });
     return;
   }
 
   try {
-    const responseText = await callDeepSeek(key, buildResearchMessages({ topic, bookTitle, bookContext, sources, retrievedAt }), 2600, 40000);
+    const responseText = await callDeepSeek(key, buildResearchMessages({ topic, bookTitle, bookContext, sources, retrievedAt, sourceStatus }), 2600, 40000);
     const parsed = parseJsonObject(responseText);
     if (!parsed) throw new Error("La respuesta no tuvo JSON válido");
-    const result = validateResearchResult(parsed, passages, sources);
+    const result = validateResearchResult(parsed, passages, sources, {
+      historicalClinical: sourceStatus === "historical-clinical",
+    });
     const status = result.currentEvidence.length
       ? (result.changes.length || result.debates.length ? "contrast_found" : "current_evidence_only")
       : "no_reliable_evidence";
     const reason = status === "no_reliable_evidence" ? "Encontré artículos relacionados, pero ninguna afirmación superó la verificación de citas. Para no inventar, no genero un contraste." : "";
     const usedIds = citedSourceIds(result);
     const usedSources = sources.filter(source => usedIds.has(source.id));
-    res.status(200).json({ result, answer: renderResearchAnswer(result, reason), status, sources: publicSources(usedSources), queries, model: MODEL, retrievedAt, researchVersion: "biomed-v8" });
+    res.status(200).json({ result, answer: renderResearchAnswer(result, reason), status, sources: publicSources(usedSources), queries, model: MODEL, retrievedAt, researchVersion: "biomed-v9" });
   } catch (error) {
     console.warn("Mundo hoy: no se pudo validar el análisis", { name: error?.name, message: cleanText(error?.message, 180) });
     const empty = emptyResult("La evidencia se recuperó, pero no se pudo validar el análisis. Para no inventar, no genero un contraste.");
-    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v8", validationError: cleanText(error?.message, 180) });
+    res.status(200).json({ ...empty, sources: [], queries, model: MODEL, retrievedAt, researchVersion: "biomed-v9", validationError: cleanText(error?.message, 180) });
   }
 }

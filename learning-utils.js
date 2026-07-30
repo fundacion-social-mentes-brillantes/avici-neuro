@@ -1,4 +1,4 @@
-export const LESSON_ENGINE_VERSION = "lesson-2026.07-v4";
+export const LESSON_ENGINE_VERSION = "lesson-2026.07-v5";
 export const MASTERY_SCORE = 80;
 
 export class LessonValidationError extends Error {
@@ -56,16 +56,48 @@ function normalizeQuestion(raw, index, allowedPages, issues, label = "Pregunta")
   return { q, options, answer, explain, level };
 }
 
-export function normalizeLessonData(raw, { allowedPages = [], timeSensitive = false } = {}) {
+const TEMPORAL_LANGUAGE = /\b(actual(?:es|mente)?|vigente(?:s)?|hoy)\b/iu;
+const SAFE_TEMPORAL_FRAME = /\b(verific\w*|comprob\w*|consult\w*|contrast\w*|compar\w*|disting\w*|separ\w*|fuente(?:s)? oficial(?:es)?|calendario nacional|lineamiento(?:s)?|protocolo del servicio|puede(?:n)? haber cambiado|no (?:es|est[aá]|debe|puede|se debe))\b/iu;
+const HISTORICAL_FRAME = /\b(esta edición|edición de 2013|archivo (?:clínico|histórico)|documento histórico|el (?:libro|manual)(?: de 2013)? (?:describe|indica|presenta|señala)|según (?:esta edición|el manual|el libro))\b/iu;
+const VERIFY_BEFORE_ACTION = /\b(verific\w*|comprob\w*|consult\w*|confirm\w*|fuente(?:s)? oficial(?:es)?|calendario nacional|lineamiento(?:s)?|antes de actuar|no (?:aplicar|administrar|indicar|usar|asumir|ejecutar))\b/iu;
+const CLINICAL_ACTION = /\b(debe(?:n)?|hay que|corresponde|se (?:debe|recomienda|indica|administra|aplica|conserva|almacena|descarta|notifica)|administrar|aplicar|indicar|vacunar|conservar|almacenar|descartar|notificar)\b/iu;
+const OPERATIONAL_DETAIL = /\b(dosis|intervalo|esquema|vía|sitio|indicación|contraindicación|producto|temperatura|cadena de frío|frasco|esavi|anafilaxia|contacto|dirección|horario|norma|protocolo|niñ[oa]|embarazad[ao]|adult[oa]|paciente|persona)\b/iu;
+const CLINICAL_VALUE = /\b\d+(?:[.,]\d+)?\s*(?:ml|µg|mcg|mg|°\s*c|grados|horas?|días?|semanas?|meses?|años?)\b/iu;
+
+function historicalBlocks({ content, learningObjectives, keyTerms, quiz, flashcards, challenge }) {
+  const contentBlocks = content.split(/\n+/).map(text => text.trim()).filter(Boolean);
+  return [
+    ...contentBlocks.map((text, index) => ({ label: `explicación ${index + 1}`, text })),
+    ...learningObjectives.map((text, index) => ({ label: `objetivo ${index + 1}`, text })),
+    ...keyTerms.map((term, index) => ({ label: `concepto ${index + 1}`, text: `${term.term}: ${term.def}` })),
+    ...quiz.map((question, index) => ({ label: `pregunta ${index + 1}`, text: [question.q, ...question.options, question.explain].join(" ") })),
+    ...flashcards.map((card, index) => ({ label: `flashcard ${index + 1}`, text: `${card.front} ${card.back}` })),
+    { label: "desafío", text: [challenge.scenario, challenge.q, ...challenge.options, challenge.explain].join(" ") },
+  ];
+}
+
+function historicalClinicalIssues(material) {
+  const issues = [];
+  for (const block of historicalBlocks(material)) {
+    if (TEMPORAL_LANGUAGE.test(block.text) && !SAFE_TEMPORAL_FRAME.test(block.text)) {
+      issues.push(`${block.label} usa lenguaje de vigencia sin indicar contraste o verificación`);
+    }
+    const actionable = (CLINICAL_ACTION.test(block.text) && OPERATIONAL_DETAIL.test(block.text))
+      || CLINICAL_VALUE.test(block.text);
+    if (actionable && !HISTORICAL_FRAME.test(block.text) && !VERIFY_BEFORE_ACTION.test(block.text)) {
+      issues.push(`${block.label} presenta una conducta o dato operativo sin atribuirlo a la edición ni exigir verificación`);
+    }
+  }
+  return issues;
+}
+
+export function normalizeLessonData(raw, { allowedPages = [], timeSensitive = false, historicalClinical = false } = {}) {
   const issues = [];
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new LessonValidationError(["la respuesta no es un objeto JSON"]);
 
   const content = cleanText(raw.content);
   if (content.length < 600) issues.push("la explicación es demasiado corta");
   issues.push(...citationIssues(content, allowedPages, "La explicación"));
-  if (timeSensitive && /\b(hoy|actualmente)\b/iu.test(content)) {
-    issues.push("la explicación presenta un dato de esta edición como si fuera actual");
-  }
 
   const learningObjectives = uniqueBy(
     (Array.isArray(raw.learningObjectives) ? raw.learningObjectives : []).map(objective => ({ value: cleanText(objective, 350) })),
@@ -104,6 +136,27 @@ export function normalizeLessonData(raw, { allowedPages = [], timeSensitive = fa
   };
   if (challenge.scenario.length < 80) challengeIssues.push("el desafío necesita un caso contextualizado");
   issues.push(...challengeIssues);
+
+  const instructionalCorpus = [
+    content,
+    ...learningObjectives,
+    ...keyTerms.flatMap(term => [term.term, term.def]),
+    ...quiz.flatMap(question => [question.q, ...question.options, question.explain]),
+    ...flashcards.flatMap(card => [card.front, card.back]),
+    challenge.scenario,
+    challenge.q,
+    ...challenge.options,
+    challenge.explain,
+  ].join("\n");
+  if (timeSensitive && !historicalClinical && /\b(hoy|actualmente)\b/iu.test(instructionalCorpus)) {
+    issues.push("el material presenta un dato de esta edición como si fuera actual");
+  }
+  if (historicalClinical) {
+    if (!/\b(esta edición|edición de 2013|el (?:libro|manual) (?:describe|indica|presenta|señala)|según (?:esta edición|el manual|el libro))\b/iu.test(content)) {
+      issues.push("el archivo clínico no identifica de forma explícita que explica una edición histórica");
+    }
+    issues.push(...historicalClinicalIssues({ content, learningObjectives, keyTerms, quiz, flashcards, challenge }));
+  }
 
   if (issues.length) throw new LessonValidationError([...new Set(issues)]);
   return { content, learningObjectives, keyTerms, quiz, flashcards, challenge };

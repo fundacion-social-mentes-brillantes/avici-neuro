@@ -1,4 +1,4 @@
-export const COURSE_ENGINE_VERSION = "catalog-2026.07-v2";
+export const COURSE_ENGINE_VERSION = "catalog-2026.07-v3";
 
 const STOPWORDS = new Set([
   "para", "como", "sobre", "entre", "desde", "hasta", "hacia", "durante", "contra",
@@ -163,6 +163,7 @@ const CURRENT_THIBODEAU = new Set([16, 19, 21, 22, 24, 27, 29, 30, 33, 34]);
 // Mazarrasa conserva enorme valor formativo, pero su edición es anterior a muchas
 // guías, calendarios, sistemas sanitarios y datos epidemiológicos vigentes.
 const CURRENT_MAZARRASA = new Set(Array.from({ length: 77 }, (_, index) => index + 1));
+const BOOK_PREFIX = { thibodeau: "th", mazarrasa: "mz", vacunador: "vac" };
 
 function makeLesson(bookId, row, pageEnd) {
   const [chapter, title, pageStart] = row;
@@ -170,7 +171,7 @@ function makeLesson(bookId, row, pageEnd) {
     ? "revisar-hoy"
     : "estable";
   return {
-    id: `${bookId === "thibodeau" ? "th" : "mz"}-c${String(chapter).padStart(2, "0")}`,
+    id: `${BOOK_PREFIX[bookId] || bookId.slice(0, 3)}-c${String(chapter).padStart(2, "0")}`,
     chapter,
     title,
     objective: `Comprender, explicar y aplicar los conceptos centrales del capítulo ${chapter} con apoyo directo de la fuente original.`,
@@ -178,6 +179,88 @@ function makeLesson(bookId, row, pageEnd) {
     pageStart,
     pageEnd,
     freshness,
+  };
+}
+
+// El Manual del vacunador (GCBA, 3.ª edición, 2013) tiene 43 entradas útiles
+// en su índice. Varias ocupan solo una página, por lo que se agrupan en
+// 26 lecciones con suficiente evidencia para explicar y evaluar sin rellenar
+// huecos. Los rangos usan la página interna del PDF: la numeración impresa
+// del manual está desplazada +1.
+const VACUNADOR_LESSONS = [
+  [1, "Leer el calendario sin confundir edición y vigencia", 6, 7, [1], "Interpretar el calendario incluido en la edición de 2013 y detectar qué datos deben verificarse en la fuente oficial vigente."],
+  [2, "Componentes, tipos y familias de vacunas", 8, 12, [2], "Explicar cómo esta edición clasifica antígenos, adyuvantes, vacunas vivas, inactivadas y combinadas."],
+  [3, "Intervalos, simultaneidad y esquemas interrumpidos", 13, 18, [2], "Razonar sobre los principios que presenta el manual para intervalos y recupero de esquemas, sin convertirlos en una indicación vigente."],
+  [4, "Vías, sitios y preparación de la administración", 19, 24, [2], "Reconocer las técnicas y controles previos descritos por la edición, identificando qué debe confirmarse antes de una práctica real."],
+  [5, "Precauciones, contraindicaciones y prematuridad", 25, 26, [2], "Distinguir las precauciones y situaciones especiales que describe el manual y practicar una lectura clínica prudente."],
+  [6, "Cadena de frío: organización y almacenamiento", 27, 31, [3], "Construir un mapa del recorrido, los equipos y la organización de la cadena de frío presentada en la edición."],
+  [7, "Cadena de frío: incidentes, transporte y frascos abiertos", 32, 36, [3], "Analizar incidentes de conservación descritos por el manual y reconocer cuándo corresponde aislar y escalar una desviación."],
+  [8, "Bioseguridad en el vacunatorio", 37, 42, [4], "Aplicar los principios de higiene, cortopunzantes, residuos y preparación segura que desarrolla esta edición."],
+  [9, "Hepatitis B y BCG", 43, 48, [5, 6], "Comparar cómo la edición de 2013 caracteriza Hepatitis B y BCG, sus componentes, administración y precauciones."],
+  [10, "Poliomielitis: OPV e IPV", 49, 52, [7, 8], "Contrastar los perfiles de OPV e IPV descritos por el manual y reconocer por qué el esquema requiere consulta actual."],
+  [11, "Pentavalente, cuádruple y Hib", 53, 58, [9, 10, 11], "Relacionar las combinaciones antigénicas y usos que la edición atribuye a pentavalente, cuádruple y Hib."],
+  [12, "Difteria, tétanos y pertussis", 59, 66, [12, 13, 14, 15], "Diferenciar las formulaciones bacterianas que presenta el manual y organizar sus similitudes y diferencias."],
+  [13, "Vacunas neumocócicas", 67, 70, [16, 17], "Comparar las vacunas neumocócicas conjugada y polisacárida según esta edición y separar esos datos de las recomendaciones actuales."],
+  [14, "Influenza y Hepatitis A", 71, 77, [18, 19], "Explicar los perfiles de influenza y Hepatitis A incluidos en la edición y localizar sus puntos sensibles al tiempo."],
+  [15, "Triple viral y doble viral", 78, 81, [20, 21], "Relacionar las vacunas triple y doble viral tal como aparecen en el manual, sin asumir que sus esquemas siguen vigentes."],
+  [16, "VPH y vacuna séxtuple", 82, 85, [22, 23], "Reconocer la descripción histórica de VPH y séxtuple y practicar la verificación de cambios posteriores."],
+  [17, "Rotavirus y varicela", 86, 89, [24, 25], "Comparar composición, administración y precauciones descritas para rotavirus y varicela en esta edición."],
+  [18, "Vacunas meningocócicas", 90, 92, [26, 27], "Distinguir las formulaciones meningocócicas C y tetravalente que documenta el manual."],
+  [19, "Rabia, fiebre hemorrágica argentina y fiebre amarilla", 93, 98, [28, 29, 30], "Organizar las vacunas ligadas a exposición, territorio o viaje según la edición, marcando cada dato que exige actualización."],
+  [20, "Gammaglobulinas y PPD", 99, 105, [31, 32], "Explicar el papel que el manual asigna a inmunoglobulinas y PPD y diferenciar profilaxis, prueba diagnóstica e inmunización."],
+  [21, "Vacunación en adolescentes y adultos", 106, 107, [33, 34], "Analizar las recomendaciones de la edición para adolescencia y adultez como documento histórico, no como calendario actual."],
+  [22, "Embarazo, puerperio y personal de salud", 108, 109, [35, 36], "Comparar las consideraciones que esta edición propone para embarazo, puerperio y personal sanitario."],
+  [23, "Vacunación y VIH", 110, 112, [37], "Razonar sobre las precauciones descritas para personas con VIH y reconocer la necesidad de evaluación y guías vigentes."],
+  [24, "ESAVI y vigilancia postvacunación", 113, 121, [38], "Clasificar eventos y errores programáticos según el manual, y comprender por qué la notificación debe seguir el sistema actual."],
+  [25, "Anafilaxia: reconocer, activar y verificar", 122, 124, [39], "Reconocer la emergencia descrita por la edición y aprender a contrastar cualquier conducta con el protocolo vigente del servicio."],
+  [26, "Red, fuentes y marco legal de la edición", 125, 130, [40, 41, 42, 43], "Leer directorios, enlaces y normativa como archivo de 2013 y saber dónde buscar información oficial actual."],
+];
+
+const VACUNADOR_UNITS = [
+  ["Pensar antes de aplicar", "🧭", 1, 5],
+  ["Conservar y trabajar seguro", "🧊", 6, 8],
+  ["Inmunizaciones esenciales", "🛡️", 9, 13],
+  ["Virales y vacunas combinadas", "🧬", 14, 18],
+  ["Exposición y apoyo inmunológico", "🧪", 19, 20],
+  ["Personas y situaciones especiales", "👥", 21, 23],
+  ["Vigilancia y respuesta segura", "🚨", 24, 25],
+  ["Red y marco histórico", "🗺️", 26, 26],
+];
+
+function vacunadorCourse() {
+  const lessons = VACUNADOR_LESSONS.map(([chapter, title, pageStart, pageEnd, sourceSections, objective]) => ({
+    id: `vac-l${String(chapter).padStart(2, "0")}`,
+    chapter,
+    title,
+    objective,
+    topics: topicWords(title),
+    pageStart,
+    pageEnd,
+    sourceSections,
+    freshness: "revisar-hoy",
+    sourceStatus: "historical-clinical",
+  }));
+  const units = VACUNADOR_UNITS.map(([title, emoji, first, last]) => ({
+    title,
+    emoji,
+    lessons: lessons.filter(lesson => lesson.chapter >= first && lesson.chapter <= last),
+  }));
+  return {
+    version: COURSE_ENGINE_VERSION,
+    source: "Índice visual verificado del PDF · 3.ª edición, 2013",
+    title: "Sala de Inmunización — aprender con criterio y seguridad",
+    subtitle: "8 misiones · 26 lecciones · cobertura completa de 43 secciones del manual",
+    expectedChapters: 26,
+    expectedSections: 43,
+    expectedPageStart: 6,
+    expectedPageEnd: 130,
+    itemLabel: "lecciones",
+    theme: "vaccination-lab",
+    notice: {
+      title: "Edición clínica histórica: aprender no es aplicar",
+      text: "El manual fue publicado en 2013. Sus calendarios, esquemas, dosis, intervalos, productos, contactos y normas pueden haber cambiado. AVICI enseña fielmente esta edición, pero las decisiones reales deben comprobarse en fuentes oficiales vigentes.",
+    },
+    units,
   };
 }
 
@@ -200,6 +283,8 @@ function thibodeauCourse() {
     title: "Anatomía y Fisiología — ruta completa hacia la neurocirugía",
     subtitle: "6 unidades · 34 capítulos · de la célula al organismo completo",
     expectedChapters: 34,
+    expectedPageStart: 23,
+    expectedPageEnd: 1243,
     units,
   };
 }
@@ -217,6 +302,8 @@ function mazarrasaCourse() {
     title: "Salud Pública y Enfermería Comunitaria — ruta completa",
     subtitle: "9 trayectos · 77 capítulos · fundamentos, método y práctica comunitaria",
     expectedChapters: 77,
+    expectedPageStart: 36,
+    expectedPageEnd: 1947,
     units,
   };
 }
@@ -224,6 +311,7 @@ function mazarrasaCourse() {
 const BUILDERS = {
   thibodeau: thibodeauCourse,
   mazarrasa: mazarrasaCourse,
+  vacunador: vacunadorCourse,
 };
 
 export function getCuratedCourse(bookId) {
@@ -236,24 +324,44 @@ export function courseAudit(course) {
   const chapters = lessons.map(lesson => lesson.chapter).filter(Number.isInteger);
   const unique = new Set(chapters);
   const ids = new Set(lessons.map(lesson => lesson.id));
+  const coveredSections = new Set(
+    lessons.flatMap(lesson => Array.isArray(lesson.sourceSections) ? lesson.sourceSections : []),
+  );
+  const expectedSections = Number(course?.expectedSections) || 0;
+  const sourceCoverageComplete = !expectedSections
+    || (coveredSections.size === expectedSections
+      && Array.from({ length: expectedSections }, (_, index) => index + 1).every(section => coveredSections.has(section)));
   const pageRangesValid = lessons.every(lesson => Number.isInteger(lesson.pageStart)
     && Number.isInteger(lesson.pageEnd)
     && lesson.pageStart > 0
     && lesson.pageEnd >= lesson.pageStart);
   const pagesMonotonic = lessons.every((lesson, index) => index === 0 || lesson.pageStart > lessons[index - 1].pageStart);
+  const pagesContiguous = lessons.every((lesson, index) => index === 0 || lesson.pageStart === lessons[index - 1].pageEnd + 1);
+  const expectedPageStart = Number(course?.expectedPageStart) || 0;
+  const expectedPageEnd = Number(course?.expectedPageEnd) || 0;
+  const pageBoundsValid = (!expectedPageStart || lessons[0]?.pageStart === expectedPageStart)
+    && (!expectedPageEnd || lessons.at(-1)?.pageEnd === expectedPageEnd);
   const sequenceComplete = chapters.every((chapter, index) => chapter === index + 1);
   return {
     lessons: lessons.length,
     uniqueChapters: unique.size,
     expectedChapters: course?.expectedChapters || 0,
+    coveredSections: coveredSections.size,
+    expectedSections,
+    sourceCoverageComplete,
     complete: unique.size === course?.expectedChapters
       && sequenceComplete
       && ids.size === lessons.length
       && pageRangesValid
-      && pagesMonotonic,
+      && pagesMonotonic
+      && pagesContiguous
+      && pageBoundsValid
+      && sourceCoverageComplete,
     stableIds: ids.size === lessons.length,
     sequenceComplete,
     pageRangesValid,
     pagesMonotonic,
+    pagesContiguous,
+    pageBoundsValid,
   };
 }

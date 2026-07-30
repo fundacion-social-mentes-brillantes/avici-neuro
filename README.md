@@ -12,10 +12,10 @@ Una app web (PWA instalable) donde una estudiante entra con su Google, un admin 
 
 - 🧬 **Neural Study Theatre**: una interfaz clínica inmersiva, responsive y accesible, pensada como sala de control de estudio en vez de un dashboard genérico.
 - ✦ **Marca AF**: el logo fusiona la A de AVICI con una F oculta de Florencia, una curva neural y una línea de precisión quirúrgica.
-- 🎓 **Cursos auditados** por libro: Thibodeau cubre sus 34 capítulos y Mazarrasa sus 77 capítulos, con rangos exactos del PDF y una ruta plegable para PC/celular.
+- 🎓 **Cursos auditados** por libro: Thibodeau cubre 34 capítulos, Mazarrasa 77 y el Manual del vacunador organiza sus 43 secciones en 26 lecciones con suficiente evidencia, siempre con rangos internos exactos del PDF.
 - 📘 **Lecciones didácticas** (explicación + conceptos clave) que **citan la página exacta** del libro para verificar.
 - 🎮 **Práctica activa**: quiz con niveles cognitivos y dominio al 80%, unir conceptos, flashcards con autoevaluación y un desafío aplicado por capítulo.
-- 🧬 **"Mundo hoy"**: busca literatura biomédica en PubMed y solo muestra afirmaciones que conservan una cita textual verificable; los cambios y debates requieren evidencia tanto del libro como de la fuente actual.
+- 🧬 **"Mundo hoy"**: busca literatura biomédica en PubMed y solo muestra afirmaciones que conservan una cita textual verificable; para vacunación también mantiene a la vista el calendario y los lineamientos oficiales argentinos.
 - 🤖 **El Profe**: chat con un tutor IA experto, natural, que cita páginas. Soporta **chats múltiples** (crear/cambiar/borrar).
 - 🏆 **Gamificación**: XP, niveles, rachas y logros.
 - 📖 **Lector híbrido**: vista Visual del PDF original —incluye imágenes, tablas, diagramas, colores y composición— y vista Lectura adaptable, sin mezclar contenido entre páginas.
@@ -71,10 +71,11 @@ Navegador (PWA)
 pagina-avici/
 ├─ index.html            # estructura + estilos (inicio, auth, admin, zona de estudio)
 ├─ app.js                # lógica: auth, admin, curso, lector, chat, notas, juegos, gamificación
-├─ course-catalog.js     # rutas verificadas: 34 capítulos de Thibodeau + 77 de Mazarrasa
+├─ course-catalog.js     # rutas verificadas: Thibodeau + Mazarrasa + Manual del vacunador
 ├─ learning-utils.js     # contrato y validación estricta de lecciones/juegos
 ├─ api/
 │  ├─ _lib.js            # verificar ID token de Firebase + estado "aprobado"
+│  ├─ book-data.js       # respaldo autenticado del texto privado
 │  ├─ book-pdf.js        # entrega privada de los PDF originales por rangos
 │  ├─ chat.js            # DeepSeek: tareas chat | curriculum | lesson | contrast
 │  ├─ research.js        # "Mundo hoy": PubMed + contraste con evidencia verificable
@@ -90,7 +91,7 @@ pagina-avici/
 └─ README.md
 ```
 
-> ⚠️ Los **libros NO están en este repo público**. El texto procesado se guarda privado en Firestore y los PDF originales en Vercel Blob privado. Ver "Procesar libros".
+> ⚠️ Los **libros NO están en este repo público**. El texto procesado se guarda en Firestore; el Manual del vacunador también tiene un respaldo autenticado en Vercel Blob privado. Los PDF originales permanecen en Blob privado. Ver "Procesar libros".
 
 ---
 
@@ -121,12 +122,14 @@ pagina-avici/
 
 ## 🤖 Cómo funciona la IA (y cómo ahorra tokens)
 
-1. **Currículum:** los dos libros incluidos usan una ruta versionada y verificada contra el índice visual del PDF; no dependen de que la IA adivine la estructura.
+1. **Currículum:** los tres libros incluidos usan una ruta versionada y verificada contra el índice visual del PDF; no dependen de que la IA adivine la estructura.
 2. **Lección:** al abrirla, se recuperan fragmentos del rango exacto del capítulo. DeepSeek arma explicación, objetivos, quiz, flashcards, conceptos y desafío; el servidor bloquea la respuesta si faltan citas, hay opciones ambiguas o los juegos están incompletos. Solo las lecciones validadas entran al caché.
 3. **Chat:** BM25 recupera 14 fragmentos diversificados por página y expande la consulta con la lección y la conversación reciente. DeepSeek recibe hasta 10 rondas de historial y responde citando páginas.
 4. **Mundo hoy:** DeepSeek traduce el tema a conceptos biomédicos → PubMed recupera literatura → DeepSeek propone el contraste → el servidor descarta cualquier afirmación cuya cita no exista literalmente en el libro o en el resumen. El resultado se renueva cada 3 días o manualmente.
 
 Como Mazarrasa es una edición histórica, sus 77 lecciones separan visiblemente **lo que enseña la edición** de **la evidencia actual**. El validador rechaza frases que presenten un dato del libro como “hoy” o “actualmente”; la actualización solo puede aparecer en “Mundo hoy” con fuentes trazables.
+
+El **Manual del vacunador** es la 3.ª edición del GCBA, publicada en 2013. Su ruta se presenta como un laboratorio documental: todos los contenidos, quizzes, flashcards y desafíos deben nombrar la edición y no pueden convertir dosis, esquemas, intervalos, productos, temperaturas, normas, contactos o protocolos antiguos en una conducta clínica. Para decisiones reales, la interfaz enlaza el [Calendario Nacional de Vacunación](https://www.argentina.gob.ar/salud/vacunas), los [lineamientos para equipos de salud](https://www.argentina.gob.ar/salud/inmunoprevenibles/recomendaciones-manuales-y-lineamientos) y la [red actual de vacunatorios de la Ciudad](https://buenosaires.gob.ar/gcaba_historico/lugares-y-horarios-de-vacunatorios).
 
 **Memoria real:** cada conversación guarda sus últimos 40 mensajes en Firestore, se restaura entre dispositivos y queda vinculada al libro en el que nació. El modelo recibe los últimos 20 mensajes (10 rondas) con límites de tamaño para conservar continuidad sin permitir prompts gigantes.
 
@@ -134,7 +137,7 @@ Como Mazarrasa es una edición histórica, sus 77 lecciones separan visiblemente
 
 - El libro se guarda en IndexedDB y se compara con su `contentVersion`; una importación nueva invalida automáticamente la copia vieja.
 - Currículo, lecciones y contrastes llevan versiones independientes del libro y del motor pedagógico, de modo que nunca se mezclan con una edición o un contrato de evaluación anterior.
-- La ruta usa identificadores estables por capítulo (`th-c01`, `mz-c01`, etc.), para que reorganizar módulos no destruya el progreso.
+- La ruta usa identificadores estables por lección (`th-c01`, `mz-c01`, `vac-l01`, etc.), para que reorganizar módulos no destruya el progreso.
 - Una pregunta inicial idéntica puede reutilizar una respuesta local durante 14 días. La clave incluye usuario, libro, versión y modo para evitar cruces o respuestas obsoletas.
 - DeepSeek reutiliza automáticamente prefijos de contexto y AVICI muestra el porcentaje de *cache hit* devuelto por la API. Las peticiones incluyen un `user_id` opaco para aislar el KV cache por estudiante.
 
@@ -161,6 +164,8 @@ El Profe sí conserva contexto, usa recuperación sobre el libro y aprovecha cac
 - `BLOB_READ_WRITE_TOKEN` — token del almacén Blob privado vinculado al proyecto.
 - `BOOK_THIBODEAU_PDF_URL` — URL privada del PDF original de Thibodeau.
 - `BOOK_MAZARRASA_PDF_URL` — URL privada del PDF original de Mazarrasa.
+- `BOOK_VACUNADOR_PDF_URL` — URL privada del Manual del vacunador.
+- `BOOK_VACUNADOR_TEXT_URL` — respaldo privado de sus 134 páginas extraídas; Firestore tiene prioridad cuando existe.
 
 **Publicar cambios:** el repo está conectado a Vercel; cada `push` a `main` **despliega solo**.
 
@@ -177,8 +182,8 @@ O deploy manual inmediato: `vercel --prod --yes`.
 ## 👩‍💼 Guía del admin
 
 1. **Aprobar usuarias:** entrá como admin → panel "Solicitudes pendientes" → **Aprobar**.
-2. **Importar libros:** panel admin → "⚙️ Importar / actualizar libros" → subí los `*.pages.json` → **Importar a Firestore**.
-3. **Verificar curso:** al entrar, la ruta auditada aparece automáticamente con la insignia **"Ruta verificada"** y el contador 34/34 o 77/77.
+2. **Importar libros:** panel admin → "⚙️ Importar / actualizar libros" → subí los `*.pages.json` → **Importar a Firestore**. El Manual del vacunador también dispone de un respaldo privado autenticado para que el curso no quede bloqueado si esa importación todavía no se hizo.
+3. **Verificar curso:** al entrar, la ruta auditada aparece automáticamente con la insignia **"Ruta verificada"** y sus métricas de cobertura: 34/34, 77/77 o 26 lecciones / 43 secciones fuente.
 
 ---
 
@@ -188,7 +193,7 @@ Los PDF y su texto extraído viven **privados** en la carpeta local `avici-mater
 
 - `extract.py` → genera `<libro>.pages.json` (texto por página, con nº de página) para importar en la app.
 
-Luego el admin sube esos `.pages.json` con el importador. El texto alimenta búsqueda, RAG y la vista Lectura; el PDF original alimenta la vista Visual. Ambos conservan exactamente el mismo número de página.
+Luego el admin sube esos `.pages.json` con el importador. El texto alimenta búsqueda, RAG y la vista Lectura; el PDF original alimenta la vista Visual. Ambos conservan exactamente el mismo número de página. En el Manual del vacunador, el respaldo privado de texto mantiene esas mismas funciones hasta que exista una copia en Firestore.
 
 ---
 
@@ -197,7 +202,7 @@ Luego el admin sube esos `.pages.json` con el importador. El texto alimenta bús
 - Repetición espaciada entre sesiones y repaso automático de preguntas falladas.
 - Metas semanales / ranking.
 - Respuestas del bot en streaming.
-- Añadir guías clínicas oficiales y revisiones de organismos sanitarios a "Mundo hoy".
+- Incorporar automáticamente extractos verificables de guías oficiales dentro del contraste, además de los enlaces operativos ya visibles.
 
 ---
 

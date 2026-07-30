@@ -25,7 +25,20 @@ const ADMIN_EMAIL = "fundacionsocial@gimnasioemocionalmb.com";
 const BOOKS = [
   { id: "thibodeau", title: "Thibodeau & Patton — Anatomía y Fisiología" },
   { id: "mazarrasa", title: "Mazarrasa — Enfermería" },
+  {
+    id: "vacunador",
+    title: "Manual del vacunador — GCBA, 3.ª edición (2013)",
+    edition: "2013",
+    sourceStatus: "historical-clinical",
+  },
 ];
+const VACCINATION_OFFICIAL_SOURCES = [
+  { label: "Calendario Nacional de Vacunación vigente", url: "https://www.argentina.gob.ar/salud/vacunas" },
+  { label: "Recomendaciones y lineamientos para equipos de salud", url: "https://www.argentina.gob.ar/salud/inmunoprevenibles/recomendaciones-manuales-y-lineamientos" },
+  { label: "Seguridad en vacunas y ESAVI", url: "https://www.argentina.gob.ar/salud/inmunoprevenibles/seguridad-en-vacunas/recomendaciones" },
+  { label: "Vacunatorios y horarios de la Ciudad", url: "https://buenosaires.gob.ar/gcaba_historico/lugares-y-horarios-de-vacunatorios" },
+];
+const PRIVATE_BOOK_DATA_IDS = new Set(["vacunador"]);
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -39,6 +52,10 @@ const show = (el, on = true) => { const e = typeof el === "string" ? $(el) : el;
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const toast = (m) => window._toast ? window._toast(m) : console.log(m);
 let isAdmin = false, curUser = null;
+function bookConfig(bookId = book?.id) { return BOOKS.find(item => item.id === bookId) || null; }
+function officialVaccinationLinks() {
+  return `<div class="official-links">${VACCINATION_OFFICIAL_SOURCES.map(source => `<a href="${esc(source.url)}" target="_blank" rel="noopener">${esc(source.label)} <span>↗</span></a>`).join("")}</div>`;
+}
 
 async function idToken() { return auth.currentUser ? await auth.currentUser.getIdToken() : null; }
 async function apiChat(payload, timeoutMs = 70000) {
@@ -406,22 +423,47 @@ async function selectBook(bookId) {
   await loadCourse(bookId);
 }
 
+async function loadPrivateBookData(bookId, metaOnly = false) {
+  const token = await idToken();
+  const response = await fetch(`/api/book-data?id=${encodeURIComponent(bookId)}${metaOnly ? "&meta=1" : ""}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "No se pudo descargar el texto privado del libro.");
+  if (!metaOnly && (!Array.isArray(payload.pages) || !payload.pages.length)) throw new Error("El texto privado del libro está incompleto.");
+  return payload;
+}
+
 async function loadBookData(bookId) {
   show("bookLoading", true); $("bookLoadingTxt").textContent = "Cargando libro…";
   try {
     const cache = await idb(); let data = await cache.get(bookId);
     let meta = null;
     try { meta = await getDoc(doc(db, "books", bookId)); }
-    catch (e) { if (!data || !data.pages) throw e; }
-    if (meta && !meta.exists()) { show("bookLoading", false); return; }
-    const m = meta ? meta.data() : null;
-    const metaVersion = m ? (m.contentVersion || (m.updatedAt?.toMillis ? m.updatedAt.toMillis() : null) || `legacy:${m.pageCount || 0}:${m.bundleCount || 0}`) : data?.cacheVersion;
+    catch (e) { if ((!data || !data.pages) && !PRIVATE_BOOK_DATA_IDS.has(bookId)) throw e; }
+    const m = meta?.exists() ? meta.data() : null;
+    let privateMeta = null;
+    if (!m && PRIVATE_BOOK_DATA_IDS.has(bookId)) {
+      try { privateMeta = await loadPrivateBookData(bookId, true); }
+      catch (e) {
+        if (!data || !data.pages) throw e;
+        privateMeta = { title: data.title, contentVersion: data.cacheVersion, cacheVersion: data.cacheVersion };
+      }
+    }
+    if (!m && !privateMeta && (!data || !data.pages)) { show("bookLoading", false); return; }
+    const metaVersion = m
+      ? (m.contentVersion || (m.updatedAt?.toMillis ? m.updatedAt.toMillis() : null) || `legacy:${m.pageCount || 0}:${m.bundleCount || 0}`)
+      : privateMeta?.contentVersion || privateMeta?.cacheVersion || data?.cacheVersion;
     if (!data || !data.pages || (metaVersion && data.cacheVersion !== metaVersion)) {
-      $("bookLoadingTxt").textContent = `Descargando ${m.title}… (una sola vez)`;
-      const bs = await getDocs(collection(db, "books", bookId, "bundles"));
-      const arr = []; bs.forEach(d => arr.push(d.data())); arr.sort((a, b) => a.i - b.i);
-      if (!arr.length) throw new Error("El libro todavía no tiene contenido importado.");
-      data = { id: bookId, title: m.title, pages: JSON.parse(arr.map(x => x.data).join("")), cacheVersion: metaVersion, contentVersion: m.contentVersion || null };
+      $("bookLoadingTxt").textContent = `Descargando ${m?.title || bookConfig(bookId)?.title || "el libro"}… (una sola vez)`;
+      if (m) {
+        const bs = await getDocs(collection(db, "books", bookId, "bundles"));
+        const arr = []; bs.forEach(d => arr.push(d.data())); arr.sort((a, b) => a.i - b.i);
+        if (!arr.length) throw new Error("El libro todavía no tiene contenido importado.");
+        data = { id: bookId, title: m.title, pages: JSON.parse(arr.map(x => x.data).join("")), cacheVersion: metaVersion, contentVersion: m.contentVersion || null };
+      } else {
+        data = await loadPrivateBookData(bookId);
+      }
       await cache.put(bookId, data);
     }
     if (m) { data.title = m.title || data.title; data.contentVersion = m.contentVersion || null; data.cacheVersion = metaVersion; }
@@ -581,6 +623,7 @@ function lessonId(ui, li) { return course?.units?.[ui]?.lessons?.[li]?.id || `u$
 function renderMap(bookId) {
   const home = $("courseHome");
   const units = (course && course.units) || [];
+  home.dataset.courseTheme = course?.theme || "";
   const done = (progress && progress.done) || {};
   let total = 0, doneCount = 0;
   units.forEach((u, ui) => (u.lessons || []).forEach((l, li) => { total++; if (done[lessonId(ui, li)]) doneCount++; }));
@@ -593,18 +636,28 @@ function renderMap(bookId) {
     if (!done[id]) { nextId = id; return true; }
     return false;
   }));
-  let html = `<div class="courseHead"><div class="course-kickers"><span>✓ Ruta verificada</span><span>${audit.uniqueChapters}/${audit.expectedChapters || audit.lessons} capítulos</span></div><h2>${esc(course.title || book.title)}</h2><p class="course-subtitle">${esc(course.subtitle || "Ruta de aprendizaje basada en la fuente original")}</p><div class="progbar"><div style="width:${pct}%"></div></div><div class="progtxt">${doneCount}/${total} lecciones dominadas · ${pct}% completado</div></div>`;
+  const itemLabel = course?.itemLabel || "capítulos";
+  const sourceCoverage = audit.expectedSections
+    ? `<span>${audit.coveredSections}/${audit.expectedSections} secciones fuente</span>`
+    : "";
+  let html = `<div class="courseHead"><div class="course-kickers"><span>✓ Ruta verificada</span><span>${audit.uniqueChapters}/${audit.expectedChapters || audit.lessons} ${esc(itemLabel)}</span>${sourceCoverage}</div><h2>${esc(course.title || book.title)}</h2><p class="course-subtitle">${esc(course.subtitle || "Ruta de aprendizaje basada en la fuente original")}</p><div class="progbar"><div style="width:${pct}%"></div></div><div class="progtxt">${doneCount}/${total} lecciones dominadas · ${pct}% completado</div></div>`;
+  if (course?.notice) {
+    html += `<aside class="course-source-notice"><span class="notice-mark" aria-hidden="true">2013</span><div><b>${esc(course.notice.title)}</b><p>${esc(course.notice.text)}</p>${bookId === "vacunador" ? officialVaccinationLinks() : ""}</div></aside>`;
+  }
   html += `<div class="stats"><span>Nivel ${lvl}</span><span>${xp} XP</span><span>Racha ${streak} día${streak === 1 ? "" : "s"}</span></div>`;
   const bs = (progress.badges || []).map(b => BADGE[b]).filter(Boolean);
   if (bs.length) html += `<div class="badges">${bs.map(b => `<span class="badge2">${b.emoji} ${b.label}</span>`).join("")}</div>`;
   units.forEach((u, ui) => {
     const unitDone = (u.lessons || []).filter((lesson, li) => done[lessonId(ui, li)]).length;
     const isOpen = openCourseUnits.has(ui);
-    html += `<section class="unit ${isOpen ? "open" : "collapsed"}"><button type="button" class="unit-h unit-toggle" data-unit="${ui}" aria-expanded="${isOpen}"><span class="unit-code">${String(ui + 1).padStart(2, "0")}</span><span class="unit-title"><b>${esc(u.emoji || "")}&nbsp; ${esc(u.title)}</b><small>${unitDone}/${(u.lessons || []).length} capítulos</small></span><span class="unit-chevron" aria-hidden="true">⌄</span></button><div class="lessons" ${isOpen ? "" : "hidden"}>`;
+    html += `<section class="unit ${isOpen ? "open" : "collapsed"}"><button type="button" class="unit-h unit-toggle" data-unit="${ui}" aria-expanded="${isOpen}"><span class="unit-code">${String(ui + 1).padStart(2, "0")}</span><span class="unit-title"><b>${esc(u.emoji || "")}&nbsp; ${esc(u.title)}</b><small>${unitDone}/${(u.lessons || []).length} lecciones</small></span><span class="unit-chevron" aria-hidden="true">⌄</span></button><div class="lessons" ${isOpen ? "" : "hidden"}>`;
     (u.lessons || []).forEach((l, li) => {
       const d = done[lessonId(ui, li)];
       const id = lessonId(ui, li);
-      html += `<button type="button" class="lesson-item ${id === nextId ? "next" : ""}" data-u="${ui}" data-l="${li}"><span class="chk">${d ? "✓" : String(l.chapter || li + 1).padStart(2, "0")}</span><span class="li-txt"><b>${esc(l.title)}</b><span>${esc(l.objective || "")}</span><small class="lesson-meta">PDF ${l.pageStart}–${l.pageEnd}${l.freshness === "revisar-hoy" ? " · Mundo hoy recomendado" : ""}</small></span>${id === nextId ? `<em class="next-label">SEGUIR</em>` : ""}</button>`;
+      const freshnessCopy = l.sourceStatus === "historical-clinical"
+        ? " · Archivo clínico 2013 · verificar vigencia"
+        : l.freshness === "revisar-hoy" ? " · Mundo hoy recomendado" : "";
+      html += `<button type="button" class="lesson-item ${id === nextId ? "next" : ""}" data-u="${ui}" data-l="${li}"><span class="chk">${d ? "✓" : String(l.chapter || li + 1).padStart(2, "0")}</span><span class="li-txt"><b>${esc(l.title)}</b><span>${esc(l.objective || "")}</span><small class="lesson-meta">PDF ${l.pageStart}–${l.pageEnd}${freshnessCopy}</small></span>${id === nextId ? `<em class="next-label">SEGUIR</em>` : ""}</button>`;
     });
     html += `</div></section>`;
   });
@@ -615,6 +668,14 @@ function renderMap(bookId) {
     if (openCourseUnits.has(ui)) openCourseUnits.delete(ui); else openCourseUnits.add(ui);
     renderMap(bookId);
   });
+}
+
+function lessonValidationOptions(lesson, passages = []) {
+  return {
+    allowedPages: passages.map(passage => passage.page),
+    timeSensitive: lesson?.freshness === "revisar-hoy",
+    historicalClinical: lesson?.sourceStatus === "historical-clinical",
+  };
 }
 
 async function openLesson(ui, li) {
@@ -629,14 +690,16 @@ async function openLesson(ui, li) {
     const cacheSnap = await getDoc(doc(db, "books", book.id, "lessons", lid));
     const cached = cacheSnap.exists() ? cacheSnap.data() : null;
     if (lessonCacheIsCurrent(cached, book.contentVersion)) {
-      try { lesson = normalizeLessonData(cached.data); } catch { lesson = null; }
+      try { lesson = normalizeLessonData(cached.data, lessonValidationOptions(l)); } catch { lesson = null; }
     }
     if (!lesson) {
       const passages = passagesForRange(l.pageStart, l.pageEnd, (l.title + " " + (l.topics || []).join(" ")));
-      if (passages.length < 4) throw new Error("No encontré suficientes fragmentos de este capítulo para crear una lección fiable.");
+      const evidenceCharacters = passages.reduce((total, passage) => total + String(passage.text || "").length, 0);
+      if (passages.length < 2 || evidenceCharacters < 900) throw new Error("No encontré suficiente evidencia de esta sección para crear una lección fiable.");
       body.innerHTML = `<div class="lesson-loader"><div class="spinner"></div><b>Construyendo desde el capítulo ${esc(l.chapter || "")}</b><span>Después verifico citas, opciones y respuestas antes de mostrarla.</span></div>`;
-      const data = await apiChat({ task: "lesson", bookTitle: book.title, passages, mode: "flash", meta: { title: l.title, objective: l.objective, chapter: l.chapter, pageStart: l.pageStart, pageEnd: l.pageEnd, freshness: l.freshness } });
-      lesson = normalizeLessonData(data.result, { allowedPages: passages.map(passage => passage.page), timeSensitive: l.freshness === "revisar-hoy" });
+      const config = bookConfig();
+      const data = await apiChat({ task: "lesson", bookId: book.id, bookTitle: book.title, passages, mode: "flash", meta: { title: l.title, objective: l.objective, chapter: l.chapter, pageStart: l.pageStart, pageEnd: l.pageEnd, freshness: l.freshness, sourceStatus: l.sourceStatus || config?.sourceStatus || "", edition: config?.edition || "" } });
+      lesson = normalizeLessonData(data.result, lessonValidationOptions(l, passages));
       try { await setDoc(doc(db, "books", book.id, "lessons", lid), { data: lesson, lessonVersion: LESSON_ENGINE_VERSION, sourceVersion: book.contentVersion || null, createdAt: serverTimestamp(), by: curUser.email }); } catch {}
     }
     curLesson.data = lesson; renderLessonSection("leccion");
@@ -651,7 +714,10 @@ function renderLessonSection(sec) {
   if (sec === "leccion") {
     const goals = (d.learningObjectives || []).map(goal => `<li>${esc(goal)}</li>`).join("");
     const terms = (d.keyTerms || []).map(t => `<div class="term"><b>${esc(t.term)}</b>: ${esc(t.def)}</div>`).join("");
-    const freshness = curLesson.l.freshness === "revisar-hoy" ? `<aside class="freshness-note"><span>⏳</span><div><b>Primero, la edición. Después, la evidencia actual.</b><p>Esta lección explica fielmente lo que enseña el libro. Para guías, cifras o prácticas vigentes, abrí <button type="button" id="goMundo">Mundo hoy</button>: allí cualquier diferencia necesita fuentes verificables.</p></div></aside>` : "";
+    const historicalClinical = curLesson.l.sourceStatus === "historical-clinical";
+    const freshness = historicalClinical
+      ? `<aside class="freshness-note clinical-archive"><span>⚕</span><div><b>Archivo clínico de 2013: estudiá el razonamiento, no ejecutes el esquema.</b><p>Las dosis, intervalos, productos, calendarios, contactos y protocolos de esta edición pueden haber cambiado. Antes de cualquier decisión real, consultá las fuentes oficiales y abrí <button type="button" id="goMundo">Mundo hoy</button>.</p>${officialVaccinationLinks()}</div></aside>`
+      : curLesson.l.freshness === "revisar-hoy" ? `<aside class="freshness-note"><span>⏳</span><div><b>Primero, la edición. Después, la evidencia actual.</b><p>Esta lección explica fielmente lo que enseña el libro. Para guías, cifras o prácticas vigentes, abrí <button type="button" id="goMundo">Mundo hoy</button>: allí cualquier diferencia necesita fuentes verificables.</p></div></aside>` : "";
     body.innerHTML = freshness + (goals ? `<aside class="lesson-goals"><b>Al terminar vas a poder</b><ol>${goals}</ol></aside>` : "") + `<div class="lesson-content">${md(d.content || "(sin contenido)")}</div>` + (terms ? `<h4 class="sech">🔑 Conceptos clave</h4><div class="terms">${terms}</div>` : "") + `<div class="lessfoot"><button class="btn btn-mint btn-sm" id="lsQuiz">🎮 Comprobar dominio</button> <button class="btn btn-ghost btn-sm" id="lsAsk">🤖 Preguntarle al profe</button></div>`;
     wireCites(body);
     if ($("goMundo")) $("goMundo").onclick = () => renderLessonSection("mundo");
@@ -761,7 +827,7 @@ async function apiResearch(payload) {
   if (!r.ok) throw new Error(data.error || ("Error " + r.status));
   return data;
 }
-const RESEARCH_CACHE_VERSION = "biomed-v8";
+const RESEARCH_CACHE_VERSION = "biomed-v9";
 function researchSourceType(source) {
   const types = (source.publicationTypes || []).join(" ").toLowerCase();
   if (types.includes("guideline")) return "Guía";
@@ -793,7 +859,7 @@ async function renderContrast() {
     }
     if (!txt) {
       const passages = passagesForRange(l.pageStart, l.pageEnd, `${l.title} ${(l.topics || []).join(" ")}`);
-      const data = await apiResearch({ topic: l.title, objective: l.objective || "", topics: l.topics || [], bookTitle: book.title, passages });
+      const data = await apiResearch({ topic: l.title, objective: l.objective || "", topics: l.topics || [], bookTitle: book.title, bookId: book.id, sourceStatus: l.sourceStatus || "", passages });
       txt = data.answer; sources = data.sources || []; status = data.status || status; retrievedAt = data.retrievedAt || new Date().toISOString();
       try {
         await setDoc(doc(db, "books", book.id, "contrast", cid), {
@@ -809,7 +875,10 @@ async function renderContrast() {
         : ["Sin evidencia suficiente", "La página prefiere dejar el contraste vacío antes que completar algo sin respaldo."];
     const statusHtml = `<div class="evidence-status ${esc(status)}"><span class="evidence-status-dot"></span><div><b>${statusCopy[0]}</b><small>${statusCopy[1]} Consulta: ${esc(researchDate(retrievedAt))}.</small></div></div>`;
     const srcHtml = sources.length ? `<div class="sources evidence-sources"><div class="sources-head"><b>🧬 Evidencia biomédica consultada</b><span>PubMed · ${sources.length} fuente${sources.length === 1 ? "" : "s"}</span></div>${sources.map(s => `<a class="source-item" href="${esc(s.url)}" target="_blank" rel="noopener"><b>Fuente ${esc(s.id || "")} · ${esc(s.title)}</b><span>${esc([s.journal, s.year, researchSourceType(s), s.pmid ? `PMID ${s.pmid}` : ""].filter(Boolean).join(" · "))}</span></a>`).join("")}</div>` : "";
-    body.innerHTML = `${statusHtml}<div class="lesson-content contrast">${md(txt)}</div>${srcHtml}<p class="disclaimer">🔎 Búsqueda automatizada en PubMed. Las afirmaciones solo se muestran cuando conservan una cita textual verificable de la fuente y, para declarar cambios, también del libro. Sigue siendo material educativo y no reemplaza guías clínicas ni criterio profesional.</p><div style="margin-top:10px"><button class="btn btn-ghost btn-sm" id="reContrast">🔄 Buscar evidencia nueva</button></div>`;
+    const officialHtml = book.id === "vacunador"
+      ? `<aside class="official-evidence-gate"><b>La fuente operativa es oficial, no PubMed</b><p>Usá la literatura biomédica para comprender la evidencia. Para calendario, esquemas, intervalos, productos, cadena de frío, ESAVI o lugares de vacunación, comprobá siempre la publicación vigente del Ministerio de Salud.</p>${officialVaccinationLinks()}</aside>`
+      : "";
+    body.innerHTML = `${officialHtml}${statusHtml}<div class="lesson-content contrast">${md(txt)}</div>${srcHtml}<p class="disclaimer">🔎 Búsqueda automatizada en PubMed. Las afirmaciones solo se muestran cuando conservan una cita textual verificable de la fuente y, para declarar cambios, también del libro. Sigue siendo material educativo y no reemplaza fuentes oficiales, guías clínicas ni criterio profesional.</p><div style="margin-top:10px"><button class="btn btn-ghost btn-sm" id="reContrast">🔄 Buscar evidencia nueva</button></div>`;
     wireCites(body);
     $("reContrast").onclick = async () => { try { await deleteDoc(doc(db, "books", book.id, "contrast", cid)); } catch {} renderContrast(); };
   } catch (e) { body.innerHTML = `<div class="empty">No se pudo investigar: ${esc(e.message)}</div>`; }
@@ -844,7 +913,7 @@ async function markDone(ui, li, score) {
 }
 
 /* ---------------- CHAT (multi-chat + caché) ---------------- */
-const CHAT_CACHE_VERSION = "v3";
+const CHAT_CACHE_VERSION = "v4";
 const CHAT_CACHE_TTL = 14 * 24 * 60 * 60 * 1000;
 let curChatId = null, chats = [], chatBusy = false;
 function setChatSignal(text, state = "") { const el = $("chatSignal"); if (!el) return; el.textContent = text; el.dataset.state = state; }
@@ -924,7 +993,18 @@ async function sendChat() {
   try {
     const qExpanded = retrievalQuery(q, selText);
     const passages = diverseSearch(bookIndex, qExpanded, 14).map(p => ({ page: p.page, printed: p.printed, text: p.text }));
-    const data = await apiChat({ task: "chat", bookTitle: book.title, passages, question: q, selectedText: selText, history: chatHistory.slice(-20), mode });
+    const config = bookConfig();
+    const data = await apiChat({
+      task: "chat",
+      bookId: book.id,
+      bookTitle: book.title,
+      passages,
+      question: q,
+      selectedText: selText,
+      history: chatHistory.slice(-20),
+      mode,
+      meta: { sourceStatus: config?.sourceStatus || "", edition: config?.edition || "" },
+    });
     thinking.remove();
     const ans = data.answer || "(sin respuesta)"; addMsg("bot", md(ans));
     chatHistory.push({ role: "user", content: (selText ? `[fragmento: ${selText.slice(0, 300)}] ` : "") + (q || "Explicame esto.") });

@@ -414,11 +414,135 @@ body.reader-focus-active .reader-stage { grid-template-columns: 72px minmax(0, 7
 .challenge-card > p { max-width: 720px; color: #4e6264; font-size: .9rem; line-height: 1.65; }
 .challenge-question { margin: 22px 0 12px; color: #102f31; font-weight: 800; }
 
+/* Manual del vacunador · sala de inmunización */
+#courseHome[data-course-theme="vaccination-lab"] .courseHead {
+  min-height: 280px;
+  background:
+    linear-gradient(rgba(255, 255, 255, .035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .035) 1px, transparent 1px),
+    radial-gradient(circle at 84% 20%, rgba(99, 245, 225, .28), transparent 22%),
+    radial-gradient(circle at 70% 115%, rgba(120, 86, 255, .4), transparent 42%),
+    linear-gradient(130deg, #071b35 0%, #10375a 52%, #20234f 100%);
+  background-size: 28px 28px, 28px 28px, auto, auto, auto;
+  box-shadow: 0 28px 80px rgba(9, 35, 76, .2);
+}
+#courseHome[data-course-theme="vaccination-lab"] .courseHead::before {
+  content: "AVICI / IMMUNIZATION LAB";
+  color: #8edbd8;
+}
+#courseHome[data-course-theme="vaccination-lab"] .courseHead::after {
+  content: "V";
+  right: 34px;
+  top: -42px;
+  -webkit-text-stroke-color: rgba(151, 248, 235, .16);
+  font-size: 17rem;
+}
+#courseHome[data-course-theme="vaccination-lab"] .course-kickers span {
+  border-color: rgba(136, 231, 255, .28);
+  color: #baf9f0;
+  background: rgba(5, 25, 54, .5);
+}
+#courseHome[data-course-theme="vaccination-lab"] .progbar > div {
+  background: linear-gradient(90deg, #68ead2, #6ab8ff, #9a82ff);
+  box-shadow: 0 0 18px rgba(106, 184, 255, .7);
+}
+#courseHome[data-course-theme="vaccination-lab"] .unit-code {
+  border-color: #9ebbe4;
+  color: #315f9d;
+  background: #eef5ff;
+}
+#courseHome[data-course-theme="vaccination-lab"] .unit-h::before { color: #446fa5; }
+#courseHome[data-course-theme="vaccination-lab"] .lesson-item .chk {
+  color: #315f9d;
+  background: linear-gradient(145deg, #e8f6ff, #e8eaff);
+}
+#courseHome[data-course-theme="vaccination-lab"] .lesson-item.next {
+  border-color: #89b9e9;
+  background: linear-gradient(90deg, rgba(92, 202, 227, .14), rgba(128, 111, 239, .08), rgba(255, 255, 255, .9));
+}
+
+.course-source-notice, .official-evidence-gate {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  max-width: 980px;
+  margin: 18px 0 22px;
+  padding: 18px;
+  border: 1px solid #e1b883;
+  border-radius: 18px;
+  color: #513b26;
+  background: linear-gradient(135deg, #fff8e9, #fff1e8);
+  box-shadow: 0 16px 42px rgba(113, 63, 23, .08);
+}
+.notice-mark {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  color: #fff;
+  background: linear-gradient(145deg, #bd664c, #7d4d75);
+  font: 800 .72rem/1 "DM Mono", monospace;
+  box-shadow: 0 9px 24px rgba(117, 67, 78, .2);
+}
+.course-source-notice b, .official-evidence-gate b { color: #503422; font-size: .9rem; }
+.course-source-notice p, .official-evidence-gate p { margin: 5px 0 0; color: #755d49; font-size: .76rem; line-height: 1.55; }
+.official-links { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+.official-links a {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid rgba(80, 92, 145, .18);
+  border-radius: 999px;
+  color: #2f5284;
+  background: rgba(255, 255, 255, .72);
+  font-size: .65rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-decoration: none;
+}
+.official-links a:hover { border-color: #6f8ec1; background: #fff; transform: translateY(-1px); }
+.official-links a span { color: #9a62a5; }
+.freshness-note.clinical-archive {
+  border-color: #e2a77d;
+  background: linear-gradient(135deg, #fff8ed, #fff0ed);
+}
+.freshness-note.clinical-archive > span {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #a85455;
+  font-size: 1rem;
+}
+.freshness-note.clinical-archive b { color: #6c3437; }
+.freshness-note.clinical-archive p { color: #7a5650; }
+.official-evidence-gate {
+  grid-template-columns: 1fr;
+  max-width: 850px;
+  margin-top: 0;
+  border-color: #9cb8d9;
+  color: #243f63;
+  background: linear-gradient(135deg, #edf7ff, #f3f0ff);
+}
+.official-evidence-gate b { color: #234872; }
+.official-evidence-gate p { color: #5c6f87; }
+
 @media (max-width: 680px) {
   .mastery-note { align-items: flex-start; flex-direction: column; }
   .course-kickers { margin-top: 28px; }
   .next-label { display: none; }
   .lesson-item { grid-template-columns: 34px minmax(0, 1fr); }
+  .course-source-notice { grid-template-columns: 1fr; }
+  .notice-mark { width: 46px; height: 46px; }
+  .official-links { display: grid; }
+  .official-links a { justify-content: space-between; border-radius: 11px; }
+  #courseHome[data-course-theme="vaccination-lab"] .courseHead { min-height: 310px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -28,8 +28,8 @@ function validLesson(page = 23) {
   };
 }
 
-test("las dos rutas cubren todos los capítulos del PDF en orden", () => {
-  for (const [bookId, expected] of [["thibodeau", 34], ["mazarrasa", 77]]) {
+test("las tres rutas auditadas cubren por completo sus fuentes", () => {
+  for (const [bookId, expected] of [["thibodeau", 34], ["mazarrasa", 77], ["vacunador", 26]]) {
     const course = getCuratedCourse(bookId);
     const audit = courseAudit(course);
     assert.equal(audit.lessons, expected);
@@ -37,9 +37,18 @@ test("las dos rutas cubren todos los capítulos del PDF en orden", () => {
     assert.equal(audit.sequenceComplete, true);
     assert.equal(audit.pagesMonotonic, true);
     assert.equal(audit.pageRangesValid, true);
+    assert.equal(audit.pagesContiguous, true);
+    assert.equal(audit.pageBoundsValid, true);
     assert.equal(audit.stableIds, true);
     assert.equal(audit.complete, true);
   }
+  const vacunador = getCuratedCourse("vacunador");
+  const audit = courseAudit(vacunador);
+  assert.equal(audit.coveredSections, 43);
+  assert.equal(audit.expectedSections, 43);
+  assert.equal(audit.sourceCoverageComplete, true);
+  assert.equal(vacunador.units.flatMap(unit => unit.lessons).every(lesson => lesson.id.startsWith("vac-l")), true);
+  assert.equal(vacunador.units.flatMap(unit => unit.lessons).every(lesson => lesson.sourceStatus === "historical-clinical"), true);
 });
 
 test("la lección solo pasa si su contenido, juegos y citas son comprobables", () => {
@@ -68,6 +77,39 @@ test("un capítulo sensible no puede presentar datos de la edición como actuale
     () => normalizeLessonData(bad, { allowedPages: [23], timeSensitive: true }),
     error => error instanceof LessonValidationError
       && error.issues.some(issue => issue.includes("como si fuera actual")),
+  );
+});
+
+test("el manual de 2013 se identifica como archivo clínico en todo el material", () => {
+  const safe = validLesson(23);
+  safe.content = `Según el manual de 2013, esta edición describe el tema como un documento histórico. ${safe.content}`;
+  safe.learningObjectives[0] = "Distinguir la edición del calendario actual que debe verificarse en una fuente oficial.";
+  assert.doesNotThrow(() => normalizeLessonData(safe, {
+    allowedPages: [23],
+    timeSensitive: true,
+    historicalClinical: true,
+  }));
+
+  const unsafe = structuredClone(safe);
+  unsafe.flashcards[0].back = "Este es el esquema vigente para todas las personas y debe aplicarse.";
+  assert.throws(
+    () => normalizeLessonData(unsafe, { allowedPages: [23], timeSensitive: true, historicalClinical: true }),
+    error => error instanceof LessonValidationError
+      && error.issues.some(issue => issue.includes("lenguaje de vigencia sin indicar contraste")),
+  );
+
+  const unsafeDose = structuredClone(safe);
+  unsafeDose.quiz[0] = {
+    q: "¿Qué dosis debe administrarse a un niño?",
+    options: ["0,5 mL", "1 mL", "2 mL", "5 mL"],
+    answer: 0,
+    explain: "Administrar 0,5 mL por la vía indicada [pág. 23].",
+    level: "aplicacion",
+  };
+  assert.throws(
+    () => normalizeLessonData(unsafeDose, { allowedPages: [23], timeSensitive: true, historicalClinical: true }),
+    error => error instanceof LessonValidationError
+      && error.issues.some(issue => issue.includes("dato operativo sin atribuirlo")),
   );
 });
 

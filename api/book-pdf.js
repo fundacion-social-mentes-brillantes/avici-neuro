@@ -1,4 +1,4 @@
-// GET /api/book-pdf?id=thibodeau|mazarrasa
+// GET /api/book-pdf?id=thibodeau|mazarrasa|vacunador
 // Proxy privado con soporte Range para que PDF.js descargue solo lo necesario.
 import { Readable } from "node:stream";
 import { verifyUser, isApproved } from "./_lib.js";
@@ -10,6 +10,7 @@ export function bookUrlFor(id, env = process.env) {
   const urls = {
     thibodeau: env.BOOK_THIBODEAU_PDF_URL,
     mazarrasa: env.BOOK_MAZARRASA_PDF_URL,
+    vacunador: env.BOOK_VACUNADOR_PDF_URL,
   };
   return urls[String(id || "").toLowerCase()] || null;
 }
