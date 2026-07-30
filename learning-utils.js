@@ -1,4 +1,4 @@
-export const LESSON_ENGINE_VERSION = "lesson-2026.07-v5";
+export const LESSON_ENGINE_VERSION = "lesson-2026.07-v6";
 export const MASTERY_SCORE = 80;
 
 export class LessonValidationError extends Error {
@@ -63,6 +63,7 @@ const VERIFY_BEFORE_ACTION = /\b(verific\w*|comprob\w*|consult\w*|confirm\w*|fue
 const CLINICAL_ACTION = /\b(debe(?:n)?|hay que|corresponde|se (?:debe|recomienda|indica|administra|aplica|conserva|almacena|descarta|notifica)|administrar|aplicar|indicar|vacunar|conservar|almacenar|descartar|notificar)\b/iu;
 const OPERATIONAL_DETAIL = /\b(dosis|intervalo|esquema|vía|sitio|indicación|contraindicación|producto|temperatura|cadena de frío|frasco|esavi|anafilaxia|contacto|dirección|horario|norma|protocolo|niñ[oa]|embarazad[ao]|adult[oa]|paciente|persona)\b/iu;
 const CLINICAL_VALUE = /\b\d+(?:[.,]\d+)?\s*(?:ml|µg|mcg|mg|°\s*c|grados|horas?|días?|semanas?|meses?|años?)\b/iu;
+const EXPLICIT_ARCHIVE_FRAME = /\b(esta edición|edición de 2013|archivo (?:clínico )?histórico|documento histórico|manual de 2013)\b/iu;
 
 function historicalBlocks({ content, learningObjectives, keyTerms, quiz, flashcards, challenge }) {
   const contentBlocks = content.split(/\n+/).map(text => text.trim()).filter(Boolean);
@@ -89,6 +90,77 @@ function historicalClinicalIssues(material) {
     }
   }
   return issues;
+}
+
+function hasActionableHistoricalDetail(text) {
+  return (CLINICAL_ACTION.test(text) && OPERATIONAL_DETAIL.test(text))
+    || CLINICAL_VALUE.test(text);
+}
+
+function frameHistoricalBlock(value, edition) {
+  const text = cleanText(value);
+  if (!text || !hasActionableHistoricalDetail(text) || HISTORICAL_FRAME.test(text) || VERIFY_BEFORE_ACTION.test(text)) {
+    return text;
+  }
+  return `Según esta edición de ${edition}, ${text}`;
+}
+
+export function frameHistoricalLesson(raw, { edition = "2013" } = {}) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const editionLabel = cleanText(edition, 40) || "2013";
+  const originalContent = cleanText(raw.content);
+  const framedContent = originalContent
+    .split("\n")
+    .map(line => frameHistoricalBlock(line, editionLabel))
+    .join("\n");
+  const archiveNotice = `> **Archivo clínico histórico:** esta edición de ${editionLabel} se estudia como documento de archivo; antes de actuar, verificá el Calendario Nacional y los lineamientos oficiales.`;
+
+  const learningObjectives = (Array.isArray(raw.learningObjectives) ? raw.learningObjectives : [])
+    .map(value => frameHistoricalBlock(value, editionLabel));
+  const keyTerms = (Array.isArray(raw.keyTerms) ? raw.keyTerms : []).map(term => ({
+    ...term,
+    def: frameHistoricalBlock(term?.def, editionLabel),
+  }));
+  const quiz = (Array.isArray(raw.quiz) ? raw.quiz : []).map(question => {
+    const corpus = [question?.q, ...(Array.isArray(question?.options) ? question.options : []), question?.explain]
+      .map(value => cleanText(value))
+      .join(" ");
+    return hasActionableHistoricalDetail(corpus) && !HISTORICAL_FRAME.test(corpus) && !VERIFY_BEFORE_ACTION.test(corpus)
+      ? { ...question, explain: `Según esta edición de ${editionLabel}, ${cleanText(question?.explain)}` }
+      : question;
+  });
+  const flashcards = (Array.isArray(raw.flashcards) ? raw.flashcards : []).map(card => {
+    const corpus = `${cleanText(card?.front)} ${cleanText(card?.back)}`;
+    return hasActionableHistoricalDetail(corpus) && !HISTORICAL_FRAME.test(corpus) && !VERIFY_BEFORE_ACTION.test(corpus)
+      ? { ...card, back: `Según esta edición de ${editionLabel}, ${cleanText(card?.back)}` }
+      : card;
+  });
+  const challengeCorpus = [
+    raw.challenge?.scenario,
+    raw.challenge?.q,
+    ...(Array.isArray(raw.challenge?.options) ? raw.challenge.options : []),
+    raw.challenge?.explain,
+  ].map(value => cleanText(value)).join(" ");
+  const challenge = raw.challenge && typeof raw.challenge === "object"
+    ? {
+        ...raw.challenge,
+        explain: hasActionableHistoricalDetail(challengeCorpus)
+          && !HISTORICAL_FRAME.test(challengeCorpus)
+          && !VERIFY_BEFORE_ACTION.test(challengeCorpus)
+          ? `Según esta edición de ${editionLabel}, ${cleanText(raw.challenge.explain)}`
+          : raw.challenge.explain,
+      }
+    : raw.challenge;
+
+  return {
+    ...raw,
+    content: EXPLICIT_ARCHIVE_FRAME.test(framedContent) ? framedContent : `${archiveNotice}\n\n${framedContent}`,
+    learningObjectives,
+    keyTerms,
+    quiz,
+    flashcards,
+    challenge,
+  };
 }
 
 export function normalizeLessonData(raw, { allowedPages = [], timeSensitive = false, historicalClinical = false } = {}) {
@@ -152,7 +224,7 @@ export function normalizeLessonData(raw, { allowedPages = [], timeSensitive = fa
     issues.push("el material presenta un dato de esta edición como si fuera actual");
   }
   if (historicalClinical) {
-    if (!/\b(esta edición|edición de 2013|el (?:libro|manual) (?:describe|indica|presenta|señala)|según (?:esta edición|el manual|el libro))\b/iu.test(content)) {
+    if (!EXPLICIT_ARCHIVE_FRAME.test(content)) {
       issues.push("el archivo clínico no identifica de forma explícita que explica una edición histórica");
     }
     issues.push(...historicalClinicalIssues({ content, learningObjectives, keyTerms, quiz, flashcards, challenge }));

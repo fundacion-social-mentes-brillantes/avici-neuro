@@ -1,7 +1,7 @@
 // POST /api/chat — Motor IA del curso (proxy seguro a DeepSeek).
 // task: 'chat' | 'curriculum' | 'lesson' | 'contrast'
 import { verifyUser, isApproved, readBody } from "./_lib.js";
-import { LessonValidationError, normalizeLessonData } from "../learning-utils.js";
+import { frameHistoricalLesson, LessonValidationError, normalizeLessonData } from "../learning-utils.js";
 
 const AR = 'estudiante de enfermería argentina 🇦🇷 (Avici) que sueña con ser neurocirujana. Hablá en español rioplatense, cercano, motivador y con humor cuando cae bien, pero riguroso.';
 const MAX_HISTORY_MESSAGES = 20;
@@ -58,6 +58,8 @@ REGLAS ESPECIALES PARA ESTE ARCHIVO CLÍNICO:
 - La fuente es una edición de ${meta.edition || "2013"}. En el contenido debe aparecer explícitamente "esta edición", "el manual describe" o "según el manual".
 - No uses las palabras "actual", "actualmente", "vigente" ni "hoy" para describir ningún dato del manual.
 - Toda dosis, intervalo, esquema, indicación, contraindicación, producto, temperatura, contacto, dirección, norma o conducta debe estar atribuida de forma inmediata a la edición: "el manual de ${meta.edition || "2013"} indica...".
+- En CADA párrafo, objetivo, definición, explicación del quiz, respuesta de flashcard y explicación del desafío que contenga un dato operativo, empezá literalmente con "Según esta edición de ${meta.edition || "2013"}," o exigí verificar una fuente oficial antes de actuar. Una advertencia general al principio no reemplaza esa atribución local.
+- La primera línea del campo content debe identificar la fuente como una edición clínica histórica de ${meta.edition || "2013"}.
 - El quiz, las flashcards y el desafío evalúan comprensión documental y detección de qué debe verificarse. Nunca pidas elegir una conducta clínica real como si el manual fuera un protocolo vigente.
 - En el desafío, si hay una persona o caso, la respuesta correcta debe consistir en interpretar lo que dice la edición o identificar qué dato requiere comprobación oficial antes de actuar.
 ` : "";
@@ -173,6 +175,9 @@ export default async function handler(req, res) {
       if (!parsed) { res.status(502).json({ error: "El modelo no devolvió JSON válido.", raw: content.slice(0, 900), finish: data?.choices?.[0]?.finish_reason || null, contentLen: content.length, reasoningLen: (data?.choices?.[0]?.message?.reasoning_content || "").length }); return; }
       if (task === "lesson") {
         try {
+          if (historicalClinical) {
+            parsed = frameHistoricalLesson(parsed, { edition: body.meta?.edition || "2013" });
+          }
           parsed = normalizeLessonData(parsed, {
             allowedPages: (body.passages || []).map(passage => passage.page),
             timeSensitive: body.meta?.freshness === "revisar-hoy",

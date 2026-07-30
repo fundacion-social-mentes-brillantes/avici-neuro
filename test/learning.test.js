@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { courseAudit, getCuratedCourse } from "../course-catalog.js";
-import { LessonValidationError, MASTERY_SCORE, normalizeLessonData, shuffleCards } from "../learning-utils.js";
+import { frameHistoricalLesson, LessonValidationError, MASTERY_SCORE, normalizeLessonData, shuffleCards } from "../learning-utils.js";
 
 function validLesson(page = 23) {
   const cite = `(pág. ${page})`;
@@ -111,6 +111,27 @@ test("el manual de 2013 se identifica como archivo clínico en todo el material"
     error => error instanceof LessonValidationError
       && error.issues.some(issue => issue.includes("dato operativo sin atribuirlo")),
   );
+});
+
+test("el motor enmarca de forma local los datos operativos del archivo antes de auditarlos", () => {
+  const generated = validLesson(23);
+  generated.content += "\n\nEl manual indica conservar el producto a 5 °C (pág. 23).";
+  generated.keyTerms[0].def = "Producto que se administra en una dosis de 0,5 mL.";
+  generated.quiz[0].q = "¿Qué dosis debe administrarse según el documento?";
+  generated.quiz[0].options = ["0,5 mL", "1 mL", "2 mL", "5 mL"];
+  generated.quiz[0].explain = "La respuesta documentada es 0,5 mL (pág. 23).";
+  generated.flashcards[0].back = "Se administra una dosis de 0,5 mL.";
+
+  const framed = frameHistoricalLesson(generated, { edition: "2013" });
+  assert.match(framed.content, /Archivo clínico histórico/i);
+  assert.match(framed.keyTerms[0].def, /^Según esta edición de 2013,/);
+  assert.match(framed.quiz[0].explain, /^Según esta edición de 2013,/);
+  assert.match(framed.flashcards[0].back, /^Según esta edición de 2013,/);
+  assert.doesNotThrow(() => normalizeLessonData(framed, {
+    allowedPages: [23],
+    timeSensitive: true,
+    historicalClinical: true,
+  }));
 });
 
 test("las flashcards se mezclan sin alterar el mazo original", () => {
