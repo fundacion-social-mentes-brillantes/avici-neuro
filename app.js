@@ -335,6 +335,12 @@ function setupReaderControls() {
   ["pgPrev", "pgPrevEdge", "pgPrevBottom"].forEach(id => $(id).onclick = () => renderPage(curPage - 1));
   ["pgNext", "pgNextEdge", "pgNextBottom"].forEach(id => $(id).onclick = () => renderPage(curPage + 1));
   $("pgInput").addEventListener("change", () => renderPage(parseInt($("pgInput").value) || 1));
+  $("pgInput").addEventListener("keydown", event => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    renderPage(parseInt($("pgInput").value) || 1);
+    $("pgInput").blur();
+  });
   $("readerFontDown").onclick = () => changeReaderPref("scale", Math.max(.85, +(readerPrefs.scale - .1).toFixed(2)));
   $("readerFontUp").onclick = () => changeReaderPref("scale", Math.min(1.35, +(readerPrefs.scale + .1).toFixed(2)));
   $("readerFamilyBtn").onclick = () => changeReaderPref("family", readerPrefs.family === "serif" ? "sans" : "serif");
