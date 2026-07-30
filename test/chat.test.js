@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildLessonRepairMessages,
   buildMessages,
   ctxFrom,
   historicalClinicalEdition,
@@ -91,6 +92,22 @@ test("el servidor activa la seguridad clínica por bookId aunque falten metadato
   assert.match(built.messages[0].content, /archivo hist[oó]rico/i);
   assert.match(built.messages[0].content, /edici[oó]n cl[ií]nica de 2013/i);
   assert.doesNotMatch(built.messages[0].content, /2026/);
+});
+
+test("la corrección de lección recibe los errores y solo las páginas recuperadas", () => {
+  const messages = [{ role: "system", content: "Generá una lección." }];
+  const repaired = buildLessonRepairMessages(
+    messages,
+    { content: "borrador" },
+    ["Desafío 1 no cita una página"],
+    [8, 9, 9, "10", 99.5],
+    true,
+  );
+  assert.equal(repaired.length, 3);
+  assert.match(repaired[2].content, /Desafío 1 no cita una página/);
+  assert.match(repaired[2].content, /8, 9, 10/);
+  assert.match(repaired[2].content, /archivo clínico de 2013/i);
+  assert.doesNotMatch(repaired[2].content, /99\.5/);
 });
 
 test("la respuesta clínica histórica se protege antes de llegar al chat", () => {

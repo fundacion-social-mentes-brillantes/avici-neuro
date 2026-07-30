@@ -13,6 +13,35 @@ export function ctxFrom(passages) {
     .join("\n\n---\n\n") || "(sin fragmentos)";
 }
 
+function parseJsonResult(value) {
+  try { return JSON.parse(value); }
+  catch {
+    const match = String(value || "").match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try { return JSON.parse(match[0]); } catch { return null; }
+  }
+}
+
+export function buildLessonRepairMessages(messages, parsed, issues, allowedPages, historicalClinical) {
+  const pages = [...new Set((allowedPages || []).map(Number).filter(Number.isInteger))].join(", ");
+  const archiveRule = historicalClinical
+    ? "\n- Conservá el marco de archivo clínico de 2013 en cada oración y actividad operativa; ninguna pregunta visible puede sonar como indicación vigente."
+    : "";
+  return [
+    ...messages,
+    { role: "assistant", content: JSON.stringify(parsed) },
+    { role: "user", content:
+`La auditoría rechazó este JSON por estos motivos:
+${issues.map(issue => `- ${issue}`).join("\n")}
+
+Corregí únicamente lo necesario y devolvé de nuevo el JSON COMPLETO, sin texto externo.
+- Releé los fragmentos anteriores; no inventes contenido ni páginas.
+- Las únicas páginas permitidas son: ${pages || "(ninguna)"}.
+- Cada explicación del quiz y del desafío debe incluir una cita exacta (pág. N) que realmente respalde su afirmación.
+- Conservá todas las cantidades, opciones únicas, niveles y campos exigidos por el formato.${archiveRule}` },
+  ];
+}
+
 export function sanitizeHistory(history) {
   if (!Array.isArray(history)) return [];
   return history
@@ -177,9 +206,7 @@ export default async function handler(req, res) {
     if (!r.ok) { res.status(502).json({ error: "DeepSeek: " + (data?.error?.message || JSON.stringify(data).slice(0, 300)) }); return; }
     const content = data?.choices?.[0]?.message?.content || "";
     if (built.json) {
-      let parsed = null;
-      try { parsed = JSON.parse(content); }
-      catch { const m = content.match(/\{[\s\S]*\}/); if (m) { try { parsed = JSON.parse(m[0]); } catch {} } }
+      let parsed = parseJsonResult(content);
       if (!parsed) { res.status(502).json({ error: "El modelo no devolvió JSON válido.", raw: content.slice(0, 900), finish: data?.choices?.[0]?.finish_reason || null, contentLen: content.length, reasoningLen: (data?.choices?.[0]?.message?.reasoning_content || "").length }); return; }
       if (task === "lesson") {
         try {
@@ -192,9 +219,41 @@ export default async function handler(req, res) {
             historicalClinical,
           });
         } catch (error) {
-          const detail = error instanceof LessonValidationError ? error.issues.join("; ") : String(error?.message || error);
-          res.status(502).json({ error: "La IA respondió, pero la lección no pasó la auditoría: " + detail.slice(0, 700) });
-          return;
+          const firstIssues = error instanceof LessonValidationError ? error.issues : [String(error?.message || error)];
+          try {
+            const allowedPages = (body.passages || []).map(passage => passage.page);
+            const repairPayload = {
+              ...payload,
+              messages: buildLessonRepairMessages(built.messages, parsed, firstIssues, allowedPages, historicalClinical),
+              temperature: 0.1,
+            };
+            const repairResponse = await fetch(`${baseUrl}/chat/completions`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+              body: JSON.stringify(repairPayload),
+              signal: AbortSignal.timeout(30000),
+            });
+            const repairData = await repairResponse.json().catch(() => ({}));
+            if (!repairResponse.ok) throw new Error(repairData?.error?.message || "falló la corrección automática");
+            const repairedContent = repairData?.choices?.[0]?.message?.content || "";
+            let repaired = parseJsonResult(repairedContent);
+            if (!repaired) throw new Error("la corrección no devolvió JSON válido");
+            if (historicalClinical) repaired = frameHistoricalLesson(repaired, { edition: historicalClinicalEdition(body) });
+            parsed = normalizeLessonData(repaired, {
+              allowedPages,
+              timeSensitive: body.meta?.freshness === "revisar-hoy",
+              historicalClinical,
+            });
+          } catch (repairError) {
+            const repairIssues = repairError instanceof LessonValidationError
+              ? repairError.issues.join("; ")
+              : String(repairError?.message || repairError);
+            res.status(502).json({
+              error: "La IA respondió, pero la lección no pasó la auditoría ni su corrección automática: "
+                + `${firstIssues.join("; ")}; ${repairIssues}`.slice(0, 700),
+            });
+            return;
+          }
         }
       }
       res.status(200).json({ result: parsed, model, usage: data?.usage || null });
