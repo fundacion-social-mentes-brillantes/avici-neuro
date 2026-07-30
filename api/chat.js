@@ -29,6 +29,13 @@ export function isHistoricalClinicalRequest(body = {}) {
     || body.meta?.sourceStatus === "historical-clinical";
 }
 
+export function historicalClinicalEdition(body = {}) {
+  const bookId = String(body.bookId || "").toLowerCase();
+  const bookTitle = String(body.bookTitle || "").toLowerCase();
+  if (bookId === "vacunador" || bookTitle.includes("manual del vacunador")) return "2013";
+  return "2013";
+}
+
 const ARCHIVE_NOTICE = "\n\n> ⚕️ **Fuente histórica de 2013:** esto sirve para estudiar la edición. Para una decisión real, verificá el Calendario Nacional y los lineamientos vigentes del Ministerio de Salud de Argentina.";
 
 export function protectHistoricalChatAnswer(value) {
@@ -53,13 +60,14 @@ export function buildMessages(task, body) {
   const { bookTitle = "el libro", passages = [], question = "", selectedText = "", history = [], meta = {} } = body;
   const ctx = ctxFrom(passages);
   const historicalClinical = isHistoricalClinicalRequest(body);
+  const historicalEdition = historicalClinicalEdition(body);
   const archiveLessonRules = historicalClinical ? `
 REGLAS ESPECIALES PARA ESTE ARCHIVO CLÍNICO:
-- La fuente es una edición de ${meta.edition || "2013"}. En el contenido debe aparecer explícitamente "esta edición", "el manual describe" o "según el manual".
+- La fuente es una edición de ${historicalEdition}. En el contenido debe aparecer explícitamente "esta edición", "el manual describe" o "según el manual".
 - No uses las palabras "actual", "actualmente", "vigente" ni "hoy" para describir ningún dato del manual.
-- Toda dosis, intervalo, esquema, indicación, contraindicación, producto, temperatura, contacto, dirección, norma o conducta debe estar atribuida de forma inmediata a la edición: "el manual de ${meta.edition || "2013"} indica...".
-- En CADA párrafo, objetivo, definición, explicación del quiz, respuesta de flashcard y explicación del desafío que contenga un dato operativo, empezá literalmente con "Según esta edición de ${meta.edition || "2013"}," o exigí verificar una fuente oficial antes de actuar. Una advertencia general al principio no reemplaza esa atribución local.
-- La primera línea del campo content debe identificar la fuente como una edición clínica histórica de ${meta.edition || "2013"}.
+- Toda dosis, intervalo, esquema, indicación, contraindicación, producto, temperatura, contacto, dirección, norma o conducta debe estar atribuida de forma inmediata a la edición: "el manual de ${historicalEdition} indica...".
+- En CADA oración, objetivo, definición, enunciado y explicación del quiz, frente y respuesta de flashcard, y escenario, pregunta y explicación del desafío que contenga un dato operativo, empezá literalmente con "Según esta edición de ${historicalEdition}," o exigí verificar una fuente oficial antes de actuar. Una advertencia general al principio no reemplaza esa atribución local.
+- La primera línea del campo content debe identificar la fuente como una edición clínica histórica de ${historicalEdition}.
 - El quiz, las flashcards y el desafío evalúan comprensión documental y detección de qué debe verificarse. Nunca pidas elegir una conducta clínica real como si el manual fuera un protocolo vigente.
 - En el desafío, si hay una persona o caso, la respuesta correcta debe consistir en interpretar lo que dice la edición o identificar qué dato requiere comprobación oficial antes de actuar.
 ` : "";
@@ -105,7 +113,7 @@ Sé honesto: si no estás seguro, decilo. FRAGMENTOS DEL LIBRO:\n${ctx}` },
   const userMsg = `${selectedText ? `FRAGMENTO QUE SELECCIONÓ AVICI:\n"""${String(selectedText).slice(0, 1500)}"""\n\n` : ""}PREGUNTA ACTUAL:\n${String(question || "Explicame esto.").slice(0, 4000)}\n\nFRAGMENTOS RECUPERADOS DEL LIBRO (referencia; pueden ser incompletos):\n${ctx}`;
   const archiveChatRules = historicalClinical ? `
 REGLA DE SEGURIDAD DE ESTA FUENTE:
-- Estás leyendo una edición clínica de ${meta.edition || "2013"}. Nombrala como archivo histórico.
+- Estás leyendo una edición clínica de ${historicalEdition}. Nombrala como archivo histórico.
 - Si preguntan por dosis, esquemas, intervalos, indicaciones, contraindicaciones, conservación, ESAVI, normas o lugares, explicá primero qué dice el manual con su página, pero no lo presentes como conducta vigente.
 - Para una decisión real, indicá comprobar el Calendario Nacional y los lineamientos actuales del Ministerio de Salud de Argentina. No inventes cuál es la actualización si no fue recuperada de una fuente oficial.
 ` : "";
@@ -176,7 +184,7 @@ export default async function handler(req, res) {
       if (task === "lesson") {
         try {
           if (historicalClinical) {
-            parsed = frameHistoricalLesson(parsed, { edition: body.meta?.edition || "2013" });
+            parsed = frameHistoricalLesson(parsed, { edition: historicalClinicalEdition(body) });
           }
           parsed = normalizeLessonData(parsed, {
             allowedPages: (body.passages || []).map(passage => passage.page),

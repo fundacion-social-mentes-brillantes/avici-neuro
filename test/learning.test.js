@@ -115,23 +115,56 @@ test("el manual de 2013 se identifica como archivo clínico en todo el material"
 
 test("el motor enmarca de forma local los datos operativos del archivo antes de auditarlos", () => {
   const generated = validLesson(23);
-  generated.content += "\n\nEl manual indica conservar el producto a 5 °C (pág. 23).";
+  generated.content += "\n\nSe debe conservar el producto a 5 °C (pág. 23).";
   generated.keyTerms[0].def = "Producto que se administra en una dosis de 0,5 mL.";
   generated.quiz[0].q = "¿Qué dosis debe administrarse según el documento?";
   generated.quiz[0].options = ["0,5 mL", "1 mL", "2 mL", "5 mL"];
   generated.quiz[0].explain = "La respuesta documentada es 0,5 mL (pág. 23).";
   generated.flashcards[0].back = "Se administra una dosis de 0,5 mL.";
+  generated.challenge.scenario = "Una niña de 5 años llega al vacunatorio para revisar la dosis.";
+  generated.challenge.q = "¿Qué dosis debe administrarse?";
 
   const framed = frameHistoricalLesson(generated, { edition: "2013" });
   assert.match(framed.content, /Archivo clínico histórico/i);
+  assert.match(framed.content, /Según esta edición de 2013, Se debe conservar el producto/);
   assert.match(framed.keyTerms[0].def, /^Según esta edición de 2013,/);
+  assert.match(framed.quiz[0].q, /^Según esta edición de 2013,/);
   assert.match(framed.quiz[0].explain, /^Según esta edición de 2013,/);
+  assert.match(framed.flashcards[0].front, /^Según esta edición de 2013,/);
   assert.match(framed.flashcards[0].back, /^Según esta edición de 2013,/);
+  assert.match(framed.challenge.scenario, /^Según esta edición de 2013,/);
+  assert.match(framed.challenge.q, /^Según esta edición de 2013,/);
   assert.doesNotThrow(() => normalizeLessonData(framed, {
     allowedPages: [23],
     timeSensitive: true,
     historicalClinical: true,
   }));
+});
+
+test("la atribución de una explicación no vuelve seguro un enunciado clínico directo", () => {
+  const unsafe = frameHistoricalLesson(validLesson(23), { edition: "2013" });
+  unsafe.quiz[0] = {
+    q: "¿Qué dosis debe administrarse a un niño?",
+    options: ["0,5 mL", "1 mL", "2 mL", "5 mL"],
+    answer: 0,
+    explain: "Según esta edición de 2013, la respuesta documentada es 0,5 mL (pág. 23).",
+    level: "aplicacion",
+  };
+  assert.throws(
+    () => normalizeLessonData(unsafe, { allowedPages: [23], timeSensitive: true, historicalClinical: true }),
+    error => error instanceof LessonValidationError
+      && error.issues.some(issue => issue.includes("pregunta 1 presenta una conducta")),
+  );
+});
+
+test("cada oración operativa del contenido exige su propio marco histórico", () => {
+  const unsafe = frameHistoricalLesson(validLesson(23), { edition: "2013" });
+  unsafe.content = `${unsafe.content}\n\nSegún esta edición de 2013, el producto se conserva a 5 °C. Debe administrarse una dosis de 0,5 mL (pág. 23).`;
+  assert.throws(
+    () => normalizeLessonData(unsafe, { allowedPages: [23], timeSensitive: true, historicalClinical: true }),
+    error => error instanceof LessonValidationError
+      && error.issues.some(issue => issue.includes("dato operativo sin atribuirlo")),
+  );
 });
 
 test("las flashcards se mezclan sin alterar el mazo original", () => {

@@ -1,4 +1,4 @@
-export const LESSON_ENGINE_VERSION = "lesson-2026.07-v6";
+export const LESSON_ENGINE_VERSION = "lesson-2026.07-v7";
 export const MASTERY_SCORE = 80;
 
 export class LessonValidationError extends Error {
@@ -63,17 +63,29 @@ const VERIFY_BEFORE_ACTION = /\b(verific\w*|comprob\w*|consult\w*|confirm\w*|fue
 const CLINICAL_ACTION = /\b(debe(?:n)?|hay que|corresponde|se (?:debe|recomienda|indica|administra|aplica|conserva|almacena|descarta|notifica)|administrar|aplicar|indicar|vacunar|conservar|almacenar|descartar|notificar)\b/iu;
 const OPERATIONAL_DETAIL = /\b(dosis|intervalo|esquema|vía|sitio|indicación|contraindicación|producto|temperatura|cadena de frío|frasco|esavi|anafilaxia|contacto|dirección|horario|norma|protocolo|niñ[oa]|embarazad[ao]|adult[oa]|paciente|persona)\b/iu;
 const CLINICAL_VALUE = /\b\d+(?:[.,]\d+)?\s*(?:ml|µg|mcg|mg|°\s*c|grados|horas?|días?|semanas?|meses?|años?)\b/iu;
-const EXPLICIT_ARCHIVE_FRAME = /\b(esta edición|edición de 2013|archivo (?:clínico )?histórico|documento histórico|manual de 2013)\b/iu;
+const EXPLICIT_ARCHIVE_FRAME = /\b(esta edición|edición de \d{4}|archivo (?:clínico )?histórico|documento histórico|manual de \d{4})\b/iu;
 
 function historicalBlocks({ content, learningObjectives, keyTerms, quiz, flashcards, challenge }) {
-  const contentBlocks = content.split(/\n+/).map(text => text.trim()).filter(Boolean);
+  const contentBlocks = content
+    .split(/\n+/)
+    .flatMap(line => line.match(/[^.!?]+(?:[.!?]+|$)/gu) || [])
+    .map(text => text.trim())
+    .filter(Boolean);
   return [
     ...contentBlocks.map((text, index) => ({ label: `explicación ${index + 1}`, text })),
     ...learningObjectives.map((text, index) => ({ label: `objetivo ${index + 1}`, text })),
     ...keyTerms.map((term, index) => ({ label: `concepto ${index + 1}`, text: `${term.term}: ${term.def}` })),
-    ...quiz.map((question, index) => ({ label: `pregunta ${index + 1}`, text: [question.q, ...question.options, question.explain].join(" ") })),
-    ...flashcards.map((card, index) => ({ label: `flashcard ${index + 1}`, text: `${card.front} ${card.back}` })),
-    { label: "desafío", text: [challenge.scenario, challenge.q, ...challenge.options, challenge.explain].join(" ") },
+    ...quiz.flatMap((question, index) => [
+      { label: `pregunta ${index + 1}`, text: [question.q, ...question.options].join(" ") },
+      { label: `explicación de pregunta ${index + 1}`, text: question.explain },
+    ]),
+    ...flashcards.flatMap((card, index) => [
+      { label: `frente de flashcard ${index + 1}`, text: card.front },
+      { label: `respuesta de flashcard ${index + 1}`, text: card.back },
+    ]),
+    { label: "escenario del desafío", text: challenge.scenario },
+    { label: "pregunta del desafío", text: [challenge.q, ...challenge.options].join(" ") },
+    { label: "explicación del desafío", text: challenge.explain },
   ];
 }
 
@@ -105,13 +117,32 @@ function frameHistoricalBlock(value, edition) {
   return `Según esta edición de ${edition}, ${text}`;
 }
 
+function frameHistoricalContentLine(line, edition) {
+  const chunks = String(line || "").match(/[^.!?]+(?:[.!?]+(?:\s+|$)|$)/gu) || [String(line || "")];
+  return chunks.map(chunk => {
+    const trailing = chunk.match(/\s+$/u)?.[0] || "";
+    const core = chunk.slice(0, chunk.length - trailing.length);
+    const match = core.match(/^(\s*(?:(?:[-*+]|\d+\.)\s+|#{1,6}\s+|>\s*)?)([\s\S]*)$/u);
+    const prefix = match?.[1] || "";
+    const body = match?.[2] || core;
+    return `${prefix}${frameHistoricalBlock(body, edition)}${trailing}`;
+  }).join("");
+}
+
+function needsHistoricalFrame(value) {
+  const text = cleanText(value);
+  return hasActionableHistoricalDetail(text)
+    && !HISTORICAL_FRAME.test(text)
+    && !VERIFY_BEFORE_ACTION.test(text);
+}
+
 export function frameHistoricalLesson(raw, { edition = "2013" } = {}) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
   const editionLabel = cleanText(edition, 40) || "2013";
   const originalContent = cleanText(raw.content);
   const framedContent = originalContent
     .split("\n")
-    .map(line => frameHistoricalBlock(line, editionLabel))
+    .map(line => frameHistoricalContentLine(line, editionLabel))
     .join("\n");
   const archiveNotice = `> **Archivo clínico histórico:** esta edición de ${editionLabel} se estudia como documento de archivo; antes de actuar, verificá el Calendario Nacional y los lineamientos oficiales.`;
 
@@ -122,39 +153,47 @@ export function frameHistoricalLesson(raw, { edition = "2013" } = {}) {
     def: frameHistoricalBlock(term?.def, editionLabel),
   }));
   const quiz = (Array.isArray(raw.quiz) ? raw.quiz : []).map(question => {
-    const corpus = [question?.q, ...(Array.isArray(question?.options) ? question.options : []), question?.explain]
+    const promptCorpus = [question?.q, ...(Array.isArray(question?.options) ? question.options : [])]
       .map(value => cleanText(value))
       .join(" ");
-    return hasActionableHistoricalDetail(corpus) && !HISTORICAL_FRAME.test(corpus) && !VERIFY_BEFORE_ACTION.test(corpus)
-      ? { ...question, explain: `Según esta edición de ${editionLabel}, ${cleanText(question?.explain)}` }
-      : question;
+    return {
+      ...question,
+      q: needsHistoricalFrame(promptCorpus)
+        ? `Según esta edición de ${editionLabel}, ${cleanText(question?.q)}`
+        : question?.q,
+      explain: frameHistoricalBlock(question?.explain, editionLabel),
+    };
   });
   const flashcards = (Array.isArray(raw.flashcards) ? raw.flashcards : []).map(card => {
     const corpus = `${cleanText(card?.front)} ${cleanText(card?.back)}`;
-    return hasActionableHistoricalDetail(corpus) && !HISTORICAL_FRAME.test(corpus) && !VERIFY_BEFORE_ACTION.test(corpus)
-      ? { ...card, back: `Según esta edición de ${editionLabel}, ${cleanText(card?.back)}` }
-      : card;
+    return {
+      ...card,
+      front: needsHistoricalFrame(corpus)
+        ? `Según esta edición de ${editionLabel}, ${cleanText(card?.front)}`
+        : card?.front,
+      back: frameHistoricalBlock(card?.back, editionLabel),
+    };
   });
-  const challengeCorpus = [
+  const challengePromptCorpus = [
     raw.challenge?.scenario,
     raw.challenge?.q,
     ...(Array.isArray(raw.challenge?.options) ? raw.challenge.options : []),
-    raw.challenge?.explain,
   ].map(value => cleanText(value)).join(" ");
   const challenge = raw.challenge && typeof raw.challenge === "object"
     ? {
         ...raw.challenge,
-        explain: hasActionableHistoricalDetail(challengeCorpus)
-          && !HISTORICAL_FRAME.test(challengeCorpus)
-          && !VERIFY_BEFORE_ACTION.test(challengeCorpus)
-          ? `Según esta edición de ${editionLabel}, ${cleanText(raw.challenge.explain)}`
-          : raw.challenge.explain,
+        scenario: frameHistoricalBlock(raw.challenge.scenario, editionLabel),
+        q: needsHistoricalFrame(challengePromptCorpus)
+          ? `Según esta edición de ${editionLabel}, ${cleanText(raw.challenge.q)}`
+          : raw.challenge.q,
+        explain: frameHistoricalBlock(raw.challenge.explain, editionLabel),
       }
     : raw.challenge;
+  const firstContentLine = framedContent.split("\n").find(line => line.trim()) || "";
 
   return {
     ...raw,
-    content: EXPLICIT_ARCHIVE_FRAME.test(framedContent) ? framedContent : `${archiveNotice}\n\n${framedContent}`,
+    content: EXPLICIT_ARCHIVE_FRAME.test(firstContentLine) ? framedContent : `${archiveNotice}\n\n${framedContent}`,
     learningObjectives,
     keyTerms,
     quiz,

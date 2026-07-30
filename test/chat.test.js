@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildMessages,
   ctxFrom,
+  historicalClinicalEdition,
   isHistoricalClinicalRequest,
   protectHistoricalChatAnswer,
   sanitizeHistory,
@@ -79,13 +80,17 @@ test("el manual histórico no se presenta como protocolo vigente", () => {
 
 test("el servidor activa la seguridad clínica por bookId aunque falten metadatos", () => {
   assert.equal(isHistoricalClinicalRequest({ bookId: "vacunador" }), true);
+  assert.equal(historicalClinicalEdition({ bookId: "vacunador", meta: { edition: "2026" } }), "2013");
   const built = buildMessages("chat", {
     bookId: "vacunador",
     bookTitle: "Fuente",
     question: "¿Qué dosis corresponde?",
     passages: [{ page: 6, text: "Calendario de la edición." }],
+    meta: { edition: "2026" },
   });
   assert.match(built.messages[0].content, /archivo hist[oó]rico/i);
+  assert.match(built.messages[0].content, /edici[oó]n cl[ií]nica de 2013/i);
+  assert.doesNotMatch(built.messages[0].content, /2026/);
 });
 
 test("la respuesta clínica histórica se protege antes de llegar al chat", () => {
