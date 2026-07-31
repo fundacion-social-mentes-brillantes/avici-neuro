@@ -1,7 +1,12 @@
 // POST /api/research — Contraste verificable entre el libro y literatura biomédica de PubMed.
 import { verifyUser, isApproved, readBody } from "./_lib.js";
 
-const MODEL = "deepseek-v4-flash";
+// Modelo de los bots. Hoy v4-flash (0731): mas capaz que v4-pro y ~3x mas barato.
+// Para volver a Pro NO hay que tocar codigo: basta definir DEEPSEEK_MODEL en el entorno.
+const MODEL = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash";
+// El modo "pensar" queda apagado a proposito (mas rapido y barato). Se enciende cuando
+// haga falta cambiando "disabled" por "enabled".
+const PENSAR_DEEPSEEK = { type: "disabled" };
 const PUBMED = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils";
 const USER_AGENT = "AVICI-NeuralStudy/2.0 (educational evidence search)";
 const MAX_SOURCES = 7;
@@ -342,7 +347,7 @@ async function callDeepSeek(key, messages, maxTokens, timeoutMs) {
   const response = await fetch(`${base}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model: MODEL, messages, thinking: { type: "disabled" }, temperature: 0.1, max_tokens: maxTokens, response_format: { type: "json_object" } }),
+    body: JSON.stringify({ model: MODEL, messages, thinking: PENSAR_DEEPSEEK, temperature: 0.1, max_tokens: maxTokens, response_format: { type: "json_object" } }),
     signal: AbortSignal.timeout(timeoutMs),
   });
   const data = await response.json().catch(() => ({}));

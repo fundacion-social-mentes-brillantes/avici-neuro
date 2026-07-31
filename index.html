@@ -233,7 +233,9 @@
             <select id="chatSel" class="chatsel" title="Tus conversaciones"></select>
             <button class="iconbtn" id="chatNew" title="Nueva conversación" aria-label="Nueva conversación">＋</button>
             <button class="iconbtn danger" id="chatDel" title="Borrar esta conversación" aria-label="Borrar esta conversación">×</button>
-            <fieldset class="modeswitch"><legend class="sr-only">Profundidad de respuesta</legend><label><input type="radio" name="mode" value="flash" checked><span>Flash</span></label><label><input type="radio" name="mode" value="pro"><span>Pro</span></label></fieldset>
+            <!-- Selector Flash/Pro retirado: hoy solo se usa deepseek-v4-flash (es mas capaz
+                 que v4-pro y ~3x mas barato). Dejarlo habria mostrado "Pro" mientras por
+                 detras corria Flash. Si algun dia vuelve Pro, se reponen estas dos opciones. -->
           </div>
           <div class="prompt-row" aria-label="Preguntas sugeridas">
             <button data-chat-prompt="Explicame el concepto central de esta lección con una analogía clínica.">Analogía clínica</button>

@@ -50,7 +50,7 @@ Navegador (PWA)
   │     ├─ PDF originales; solo se entregan a usuarias autenticadas y aprobadas
   │     └─ respaldo textual autenticado del Manual del vacunador
   │
-  └─ DeepSeek API (v4-pro / v4-flash)  → el modelo de IA (key guardada SOLO en Vercel)
+  └─ DeepSeek API (v4-flash)  → el modelo de IA (key guardada SOLO en Vercel)
 ```
 
 **Idea clave:** la búsqueda (RAG) se hace en el cliente sobre el texto del libro; el servidor solo arma el prompt y llama a DeepSeek. La **API key nunca está en el código público** — vive como variable de entorno en Vercel.
@@ -63,7 +63,7 @@ Navegador (PWA)
 - **Render de libros:** PDF.js, con carga por rangos para no descargar cientos de MB antes de mostrar la primera página.
 - **Backend:** Vercel Serverless Functions (Node, ESM). Verificación de token con [`jose`](https://www.npmjs.com/package/jose).
 - **Auth + DB:** Firebase Authentication (Google) + Cloud Firestore.
-- **IA:** DeepSeek API (OpenAI-compatible) — `deepseek-v4-pro` (profundo) y `deepseek-v4-flash` (rápido, por defecto para tareas estructuradas).
+- **IA:** DeepSeek API (OpenAI-compatible) — `deepseek-v4-flash` en todo (chat, currículum, lecciones y contraste). Desde la versión 0731 es más capaz que `deepseek-v4-pro` y cuesta ~3× menos, y el modo "pensar" va desactivado (`thinking: disabled`) para responder más rápido y más barato. Se cambia de modelo con la variable `DEEPSEEK_MODEL`.
 - **Investigación biomédica:** NCBI E-utilities / PubMed, con resúmenes, fecha, revista, PMID y tipo de publicación.
 - **Hosting + CI/CD:** GitHub → Vercel (auto-deploy en cada `push`).
 
@@ -185,7 +185,7 @@ Vercel mostrará la dirección local, normalmente `http://localhost:3000`. Los a
 
 **Requisitos de entorno (en Vercel → Settings → Environment Variables):**
 - `DEEPSEEK_API_KEY` — **obligatoria** (la key de DeepSeek).
-- `DEEPSEEK_MODEL` — opcional (por defecto `deepseek-v4-pro`).
+- `DEEPSEEK_MODEL` — opcional (por defecto `deepseek-v4-flash`). Es el interruptor para cambiar de modelo sin tocar código: si algún día conviene volver a `deepseek-v4-pro`, se define esta variable y listo.
 - `DEEPSEEK_BASE_URL` — opcional (por defecto `https://api.deepseek.com`).
 - `BLOB_READ_WRITE_TOKEN` — token del almacén Blob privado vinculado al proyecto.
 - `BOOK_THIBODEAU_PDF_URL` — URL privada del PDF original de Thibodeau.

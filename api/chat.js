@@ -248,7 +248,8 @@ export default async function handler(req, res) {
 
   const body = readBody(req);
   const task = ["chat", "curriculum", "lesson", "contrast"].includes(body.task) ? body.task : "chat";
-  const mode = body.mode === "flash" ? "flash" : "pro";
+  /* El cliente puede seguir mandando "mode" ("flash" o "pro"): se acepta sin error por
+     compatibilidad, pero ya no elige modelo — hoy las dos opciones usan el mismo v4-flash. */
   const historicalClinical = isHistoricalClinicalRequest(body);
   /* Un cuerpo malformado (meta en null, passages que no es lista) reventaba acá con un 500
      sin JSON, y el navegador mostraba "Error 500" pelado. Ahora responde 400 explicado. */
@@ -269,11 +270,16 @@ export default async function handler(req, res) {
   const restante = () => PRESUPUESTO_MS - (Date.now() - inicio);
 
   const baseUrl = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com";
-  const model = mode === "flash" ? "deepseek-v4-flash" : (process.env.DEEPSEEK_MODEL || "deepseek-v4-pro");
-  const payload = { model, messages: built.messages, temperature: task === "lesson" || task === "curriculum" ? 0.4 : 0.5, max_tokens: (task === "curriculum" || task === "lesson") ? 8000 : 2500, user_id: user.uid };
+  // Modelo de los bots. Hoy v4-flash (0731): mas capaz que v4-pro y ~3x mas barato.
+  // Para volver a Pro NO hay que tocar codigo: basta definir DEEPSEEK_MODEL en el entorno.
+  const model = process.env.DEEPSEEK_MODEL || "deepseek-v4-flash";
+  // El modo "pensar" queda apagado a proposito (mas rapido y barato). Se enciende cuando
+  // haga falta cambiando "disabled" por "enabled". Ojo: si NO se manda, DeepSeek lo pone
+  // en "enabled" por su cuenta, asi que va siempre en el payload (tambien en el chat).
+  const PENSAR_DEEPSEEK = { type: "disabled" };
+  const payload = { model, messages: built.messages, thinking: PENSAR_DEEPSEEK, temperature: task === "lesson" || task === "curriculum" ? 0.4 : 0.5, max_tokens: (task === "curriculum" || task === "lesson") ? 8000 : 2500, user_id: user.uid };
   if (built.json) {
     payload.response_format = { type: "json_object" };
-    payload.thinking = { type: "disabled" };
   }
 
   try {

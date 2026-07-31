@@ -1240,7 +1240,7 @@ async function sendChat() {
   const cached = cacheKey ? cachedChatAnswer(cacheKey) : null;
   if (cached) { addMsg("bot", md(cached)); chatHistory.push({ role: "user", content: q }, { role: "assistant", content: cached }); setChatSignal("Respuesta local · 0 tokens", "cached"); persistChat(); return; }
   chatBusy = true; $("chatSend").disabled = true; $("chatInput").setAttribute("aria-busy", "true"); setChatSignal("Razonando con el libro", "thinking");
-  const thinking = addMsg("bot", `<span class="think dots">Procesando · ${mode === "pro" ? "V4 Pro" : "V4 Flash"}</span>`, "think");
+  const thinking = addMsg("bot", `<span class="think dots">Procesando · V4 Flash</span>`, "think");
   try {
     const qExpanded = retrievalQuery(q, selText);
     const passages = diverseSearch(bookIndex, qExpanded, 14).map(p => ({ page: p.page, printed: p.printed, text: p.text }));
@@ -1265,7 +1265,7 @@ async function sendChat() {
     if (cacheKey) storeChatAnswer(cacheKey, ans);
     const hit = Number(data.usage?.prompt_cache_hit_tokens || 0), miss = Number(data.usage?.prompt_cache_miss_tokens || 0);
     const cachePct = hit + miss ? Math.round(hit / (hit + miss) * 100) : null;
-    setChatSignal(`${mode === "pro" ? "V4 Pro" : "V4 Flash"}${cachePct == null ? "" : ` · caché ${cachePct}%`}`, "ready");
+    setChatSignal(`V4 Flash${cachePct == null ? "" : ` · caché ${cachePct}%`}`, "ready");
     persistChat();
   } catch (e) { thinking.remove(); addMsg("bot", "⚠️ " + esc(e.message || e), "think"); if (!$("chatInput").value) $("chatInput").value = q; setChatSignal("No se pudo responder", "error"); }
   finally { chatBusy = false; $("chatSend").disabled = false; $("chatInput").removeAttribute("aria-busy"); }
