@@ -15,6 +15,35 @@ export function bookUrlFor(id, env = process.env) {
   return urls[String(id || "").toLowerCase()] || null;
 }
 
+/* Cabeceras que se le piden al almacenamiento privado.
+   NUNCA se reenvía If-None-Match. El ETag identifica al PDF completo, no al trozo: al
+   revalidar un rango el almacenamiento devolvía 304 y el navegador reutilizaba el trozo
+   que ya tenía guardado para esa misma URL. Así PDF.js recibía el principio del libro
+   donde esperaba la tabla xref y moría con "Invalid PDF structure". */
+export function upstreamRequestHeaders(requestHeaders = {}, blobToken) {
+  const headers = { Authorization: `Bearer ${blobToken}` };
+  const range = requestHeaders.range || requestHeaders.Range;
+  if (range) headers.Range = range;
+  return headers;
+}
+
+/* Cabeceras que se devuelven al navegador: se copian las que describen el trozo entregado,
+   pero se omiten los validadores (ETag/Last-Modified) y se marca no-store, porque todos los
+   rangos comparten la misma URL y cachearlos los mezcla entre sí. */
+export function downstreamHeaders(upstream) {
+  const headers = {
+    "Content-Type": "application/pdf",
+    "Content-Disposition": "inline",
+    "Cache-Control": "private, no-store",
+    "X-Content-Type-Options": "nosniff",
+  };
+  for (const name of ["accept-ranges", "content-length", "content-range"]) {
+    const value = upstream.headers.get(name);
+    if (value) headers[name] = value;
+  }
+  return headers;
+}
+
 async function hasBookAccess(user) {
   const now = Date.now(), cached = approvalCache.get(user.uid);
   if (cached && now - cached.at < APPROVAL_TTL_MS) return cached.ok;
@@ -33,22 +62,18 @@ export default async function handler(req, res) {
   const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
   if (!sourceUrl || !blobToken) { res.status(503).json({ error: "La edición visual de este libro todavía no está disponible." }); return; }
 
-  const upstreamHeaders = { Authorization: `Bearer ${blobToken}` };
-  if (req.headers.range) upstreamHeaders.Range = req.headers.range;
-  if (req.headers["if-none-match"]) upstreamHeaders["If-None-Match"] = req.headers["if-none-match"];
-
   let upstream;
-  try { upstream = await fetch(sourceUrl, { method: req.method, headers: upstreamHeaders }); }
+  try { upstream = await fetch(sourceUrl, { method: req.method, headers: upstreamRequestHeaders(req.headers, blobToken) }); }
   catch { res.status(502).json({ error: "No se pudo abrir la página original." }); return; }
 
-  const forwarded = ["accept-ranges", "content-length", "content-range", "etag", "last-modified"];
-  for (const name of forwarded) { const value = upstream.headers.get(name); if (value) res.setHeader(name, value); }
-  res.setHeader("Content-Type", "application/pdf");
-  res.setHeader("Content-Disposition", "inline");
-  res.setHeader("Cache-Control", "private, no-cache");
-  res.setHeader("X-Content-Type-Options", "nosniff");
+  /* Cualquier respuesta que no sea el contenido pedido (304 sin cuerpo, o un error del
+     almacenamiento) se corta acá: entregarla como application/pdf le daría bytes falsos
+     a PDF.js y el mensaje de error sería incomprensible para quien está estudiando. */
+  if (!upstream.ok) { res.status(502).json({ error: "No se pudo leer esta parte del libro. Probá de nuevo." }); return; }
+
+  for (const [name, value] of Object.entries(downstreamHeaders(upstream))) res.setHeader(name, value);
   res.status(upstream.status);
 
-  if (req.method === "HEAD" || !upstream.body || upstream.status === 304) { res.end(); return; }
+  if (req.method === "HEAD" || !upstream.body) { res.end(); return; }
   Readable.fromWeb(upstream.body).pipe(res);
 }
