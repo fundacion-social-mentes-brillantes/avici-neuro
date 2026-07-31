@@ -1,5 +1,5 @@
 /* Service Worker — AVICI PWA (network-first para tener siempre lo último) */
-const CACHE = "avici-v9-vaccination-lab";
+const CACHE = "avici-v10-leccion-fiable";
 const ASSETS = ["/", "/index.html", "/styles.css", "/app.js", "/course-catalog.js", "/learning-utils.js", "/reader-utils.js", "/vendor/pdfjs/pdf.min.mjs", "/vendor/pdfjs/pdf.worker.min.mjs", "/manifest.webmanifest", "/assets/logo-avici.png", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
@@ -29,6 +29,14 @@ self.addEventListener("fetch", (e) => {
         }
         return res;
       })
-      .catch(() => caches.match(req).then((r) => r || caches.match("/index.html")))
+      /* Sin red: se sirve lo cacheado. El index.html SOLO vale como respaldo de una
+         navegación; devolverlo ante un módulo JS o una hoja de estilos hacía que el
+         navegador recibiera HTML donde esperaba código y la app moría con un error de
+         sintaxis incomprensible en vez de decir simplemente que no hay conexión. */
+      .catch(() => caches.match(req).then((r) => {
+        if (r) return r;
+        if (req.mode === "navigate") return caches.match("/index.html");
+        return Response.error();
+      }))
   );
 });
