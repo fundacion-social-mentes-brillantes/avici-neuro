@@ -166,6 +166,7 @@ function startAdmin() {
     if (qs.empty) { list.innerHTML = `<div class="empty">Aún no hay aprobados.</div>`; return; }
     list.innerHTML = ""; qs.forEach(d => list.appendChild(userRow(d.id, d.data(), "approved")));
   }, e => { $("approvedList").innerHTML = `<div class="empty">Error: ${esc(e.message)}</div>`; });
+  cargarActividad();           // el avance se lee una vez al abrir el panel
 }
 function userRow(uid, u, kind) {
   const row = document.createElement("div"); row.className = "urow";
@@ -187,6 +188,153 @@ async function setStatus(uid, status) {
   try { await updateDoc(doc(db, "users", uid), { status, approvedAt: serverTimestamp(), approvedBy: (auth.currentUser && auth.currentUser.email) || "" }); toast(status === "approved" ? "✅ Aprobada." : "Actualizado."); }
   catch (e) { toast("No se pudo: " + (e.message || e)); }
 }
+
+/* ---------------- PANEL DE ACTIVIDAD (solo admin) ----------------
+   Muestra USO y AVANCE: si entran, cuánto estudian y hasta dónde llegaron.
+   NO muestra el contenido de las notas ni de las conversaciones con el Profe:
+   la app les promete que eso es privado, así que acá solo se cuentan. */
+
+function fechaDe(valor) {
+  if (!valor) return null;
+  if (typeof valor?.toDate === "function") { try { return valor.toDate(); } catch { return null; } }
+  const d = new Date(valor);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+function hace(fecha) {
+  if (!fecha) return "nunca";
+  const dias = Math.floor((Date.now() - fecha.getTime()) / 86400000);
+  if (dias <= 0) return "hoy";
+  if (dias === 1) return "ayer";
+  if (dias < 30) return `hace ${dias} días`;
+  const meses = Math.round(dias / 30);
+  return meses <= 1 ? "hace 1 mes" : `hace ${meses} meses`;
+}
+function leccionesDelLibro(bookId) {
+  try {
+    const curso = getCuratedCourse(bookId);
+    return (curso?.units || []).reduce((n, u) => n + ((u.lessons || []).length), 0);
+  } catch { return 0; }
+}
+function tituloLibro(bookId) {
+  return (BOOKS.find(b => b.id === bookId)?.title || bookId).split("—")[0].trim();
+}
+
+let actividadCache = [];
+
+async function cargarActividad() {
+  const lista = $("actLista"), resumen = $("actResumen");
+  if (!lista || !resumen) return;
+  lista.innerHTML = `<div class="empty">Leyendo el avance…</div>`;
+  resumen.innerHTML = "";
+  try {
+    const usuarios = await getDocs(query(collection(db, "users"), where("status", "==", "approved")));
+    const filas = [];
+    for (const docUsuario of usuarios.docs) {
+      const uid = docUsuario.id, datos = docUsuario.data() || {};
+      const [progreso, notas, charlas] = await Promise.all([
+        getDocs(collection(db, "users", uid, "progress")).catch(() => null),
+        getDocs(collection(db, "users", uid, "notes")).catch(() => null),
+        getDocs(collection(db, "users", uid, "chats")).catch(() => null),
+      ]);
+      let lecciones = 0, xp = 0, racha = 0, nivel = 1, ultima = null;
+      const libros = [];
+      for (const p of (progreso?.docs || [])) {
+        const d = p.data() || {};
+        const hechas = Object.keys(d.done || {}).length;
+        const total = leccionesDelLibro(p.id);
+        lecciones += hechas;
+        xp += Number(d.xp || 0);
+        racha = Math.max(racha, Number(d.streak || 0));
+        nivel = Math.max(nivel, Number(d.level || 1));
+        const f = fechaDe(d.updatedAt) || fechaDe(d.lastStudy);
+        if (f && (!ultima || f > ultima)) ultima = f;
+        if (hechas || total) libros.push({ id: p.id, hechas, total });
+      }
+      filas.push({
+        uid,
+        nombre: datos.displayName || "Sin nombre",
+        email: datos.email || "",
+        foto: datos.photoURL || "",
+        alta: fechaDe(datos.createdAt),
+        ultima, lecciones, xp, nivel, racha, libros,
+        notas: notas?.size || 0,
+        charlas: charlas?.size || 0,
+      });
+    }
+    filas.sort((a, b) => (b.ultima?.getTime() || 0) - (a.ultima?.getTime() || 0));
+    actividadCache = filas;
+    pintarResumenActividad(filas);
+    pintarListaActividad(filas);
+  } catch (e) {
+    lista.innerHTML = `<div class="empty">No pude leer la actividad: ${esc(e.message || e)}</div>`;
+  }
+}
+
+function pintarResumenActividad(filas) {
+  const ahora = Date.now();
+  const activos = (dias) => filas.filter(f => f.ultima && (ahora - f.ultima.getTime()) <= dias * 86400000).length;
+  const sinEmpezar = filas.filter(f => !f.lecciones).length;
+  const lecciones = filas.reduce((n, f) => n + f.lecciones, 0);
+  const tarjetas = [
+    ["Con acceso", filas.length, "personas aprobadas"],
+    ["Activas esta semana", activos(7), "estudiaron en 7 días"],
+    ["Activas este mes", activos(30), "estudiaron en 30 días"],
+    ["Nunca empezaron", sinEmpezar, "0 lecciones hechas"],
+    ["Lecciones dominadas", lecciones, "sumando a todas"],
+    ["Notas guardadas", filas.reduce((n, f) => n + f.notas, 0), "solo el conteo"],
+  ];
+  $("actResumen").innerHTML = tarjetas
+    .map(([t, v, p]) => `<div class="act-kpi"><span class="act-kpi-n">${v}</span><b>${esc(t)}</b><small>${esc(p)}</small></div>`)
+    .join("");
+}
+
+function pintarListaActividad(filas) {
+  const lista = $("actLista");
+  if (!filas.length) { lista.innerHTML = `<div class="empty">Todavía no hay nadie aprobado.</div>`; return; }
+  lista.innerHTML = filas.map(f => {
+    const barras = f.libros.map(l => {
+      const pct = l.total ? Math.round(l.hechas / l.total * 100) : 0;
+      return `<div class="act-libro"><span>${esc(tituloLibro(l.id))}</span>`
+        + `<div class="act-barra"><i style="width:${pct}%"></i></div>`
+        + `<small>${l.hechas}${l.total ? "/" + l.total : ""}${l.total ? ` · ${pct}%` : ""}</small></div>`;
+    }).join("") || `<div class="act-libro act-vacio"><span>Todavía no abrió ninguna lección</span></div>`;
+    const frio = !f.ultima || (Date.now() - f.ultima.getTime()) > 14 * 86400000;
+    return `<div class="act-fila${frio ? " act-frio" : ""}">
+      <img src="${esc(f.foto || "/icon-192.png")}" alt="" referrerpolicy="no-referrer">
+      <div class="act-quien"><b>${esc(f.nombre)}</b><span>${esc(f.email)}</span>
+        <small>Entró ${esc(hace(f.alta))} · última actividad ${esc(hace(f.ultima))}</small></div>
+      <div class="act-libros">${barras}</div>
+      <div class="act-cifras">
+        <span title="Lecciones dominadas">✅ ${f.lecciones}</span>
+        <span title="Nivel y XP">🏆 ${f.nivel} · ${f.xp} XP</span>
+        <span title="Racha de días">🔥 ${f.racha}</span>
+        <span title="Notas escritas (no se muestra el contenido)">✍️ ${f.notas}</span>
+        <span title="Conversaciones con el Profe (no se muestra el contenido)">💬 ${f.charlas}</span>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function descargarActividadCSV() {
+  if (!actividadCache.length) { toast("Primero tocá «Actualizar»."); return; }
+  const cab = ["nombre", "email", "alta", "ultima_actividad", "lecciones", "nivel", "xp", "racha", "notas", "conversaciones"];
+  const filas = actividadCache.map(f => [
+    f.nombre, f.email,
+    f.alta ? f.alta.toISOString().slice(0, 10) : "",
+    f.ultima ? f.ultima.toISOString().slice(0, 10) : "",
+    f.lecciones, f.nivel, f.xp, f.racha, f.notas, f.charlas,
+  ]);
+  const csv = [cab, ...filas]
+    .map(fila => fila.map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = `avici-actividad-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+$("actRefresh") && $("actRefresh").addEventListener("click", cargarActividad);
+$("actCsv") && $("actCsv").addEventListener("click", descargarActividadCSV);
 
 /* ---------------- IMPORTAR LIBROS ---------------- */
 function ilog(m) { const el = $("importLog"); el.textContent += (el.textContent ? "\n" : "") + m; el.scrollTop = el.scrollHeight; }

@@ -110,6 +110,16 @@
       <div class="ulist" id="pendingList"><div class="empty">Cargando…</div></div>
       <h3>Accesos aprobados</h3>
       <div class="ulist" id="approvedList"><div class="empty">Cargando…</div></div>
+
+      <div class="admin-heading">
+        <div><p class="section-label">ACTIVIDAD</p><h3>Quién está estudiando</h3></div>
+        <div class="act-acciones"><button class="btn btn-ghost btn-sm" id="actCsv">Descargar CSV</button><button class="btn btn-ghost btn-sm" id="actRefresh">Actualizar</button></div>
+      </div>
+      <div id="actResumen" class="act-resumen"></div>
+      <div id="actLista" class="act-lista"><div class="empty">Tocá «Actualizar» para leer el avance.</div></div>
+      <p class="act-privacidad">Se muestra <b>uso y avance</b>: cuánto estudian y hasta dónde llegaron.
+        El contenido de sus notas y de sus conversaciones con el Profe no se muestra acá — es privado,
+        y así se lo promete la app.</p>
       <details class="import">
         <summary>Importar o actualizar libros</summary>
         <p>Subí <b>thibodeau.pages.json</b>, <b>mazarrasa.pages.json</b> o <b>vacunador.pages.json</b>. Se guardan de forma privada en Firestore.</p>
