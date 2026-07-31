@@ -65,7 +65,14 @@ async function apiChat(payload, timeoutMs = 70000) {
   try {
     const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + tk }, body: JSON.stringify(payload), signal: controller.signal });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error || ("Error " + r.status));
+    if (!r.ok) {
+      /* El servidor marca qué fallos son técnicos y vale la pena reintentar solos
+         (respuesta cortada, sin tiempo para la corrección) frente a los que no. */
+      const fallo = new Error(data.error || ("Error " + r.status));
+      fallo.retryable = data.retryable === true || r.status === 504;
+      fallo.status = r.status;
+      throw fallo;
+    }
     return data;
   } catch (error) {
     if (error?.name === "AbortError") throw new Error("La lección tardó demasiado. Tocá reintentar: tu ruta y tu progreso siguen a salvo.");
@@ -76,11 +83,19 @@ async function apiChat(payload, timeoutMs = 70000) {
 }
 
 /* ---------- markdown-lite + citas ---------- */
-function md(text) {
+/* `paginasVerificadas` (opcional): conjunto de páginas que REALMENTE se recuperaron del
+   libro para esta respuesta. Cuando se pasa, solo esas se dibujan como cita clicable. Una
+   página que el modelo escribió de memoria queda como texto plano, sin el botón verde: el
+   botón significa "esto está en el libro y te lo puedo abrir", y no puede mentir. */
+function md(text, paginasVerificadas = null) {
   let h = esc(text);
   h = h.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`]+)`/g, "<code>$1</code>");
   h = h.replace(/^\s*###?\s*(.+)$/gm, "<h4>$1</h4>");
-  h = h.replace(/\(?\bp[aá]g(?:ina)?s?\.?\s*(\d{1,4})\b\)?/gi, (m, n) => `<button class="cite" data-pg="${n}">📄 pág. ${n}</button>`);
+  h = h.replace(/\(?\bp[aá]g(?:ina)?s?\.?\s*(\d{1,4})\b\)?/gi, (m, n) => (
+    !paginasVerificadas || paginasVerificadas.has(Number(n))
+      ? `<button class="cite" data-pg="${n}">📄 pág. ${n}</button>`
+      : `<span class="cite-sin-verificar" title="El Profe mencionó esta página, pero no salió de los fragmentos recuperados del libro">pág. ${n}</span>`
+  ));
   h = h.replace(/^\s*[-*]\s+(.+)$/gm, "• $1");
   h = h.replace(/\n/g, "<br>");
   return h;
@@ -385,7 +400,8 @@ function initStudy(user) {
   }
   studyInit = true;
   playWelcome(user);
-  const sel = $("bookSel"); sel.innerHTML = BOOKS.map(b => `<option value="${b.id}">${esc(b.title)}</option>`).join("");
+  const sel = $("bookSel"); sel.innerHTML = BOOKS.map(b => `<option value="${b.id}" title="${esc(b.title)}">${esc(b.title)}</option>`).join("");
+  sel.title = BOOKS.find(b => b.id === sel.value)?.title || "";   // el nombre completo, aunque se recorte
   sel.addEventListener("change", () => selectBook(sel.value));
   document.querySelectorAll(".tabs button").forEach(btn => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
   // reader
@@ -414,19 +430,47 @@ function switchTab(tab) {
   $("panel-" + tab).classList.add("active");
 }
 
+/* Mismo token que en las lecciones: si la alumna cambia de fuente dos veces seguidas, la
+   carga más lenta ya no puede terminar encima de la nueva y dejar el índice de un libro
+   con el curso de otro. */
+let bookRunId = 0;
+
 async function selectBook(bookId) {
+  const runId = ++bookRunId;
+  lessonRunId++;                              // invalida cualquier lección en vuelo
   await resetReaderPdf();
+  if (runId !== bookRunId) return;
   book = null; bookIndex = null; course = null; curLesson = null; openCourseUnits = new Set(); pendingSel = ""; clearSelBanner();
   show("lessonView", false); show("courseHome", true);
   $("courseHome").innerHTML = ""; $("pageContent").textContent = "";
   const selected = BOOKS.find(item => item.id === bookId);
   $("readerBookTitle").textContent = selected?.title || "Preparando tu libro…";
   $("readerBookMeta").textContent = "Cargando las páginas originales y tus preferencias de lectura.";
-  await loadBookData(bookId);
-  if (!book) return;
+  try {
+    await loadBookData(bookId);
+  } catch (error) {
+    if (runId !== bookRunId) return;
+    mostrarFuenteNoDisponible(selected, error);
+    return;
+  }
+  if (runId !== bookRunId) return;
+  if (!book) { mostrarFuenteNoDisponible(selected, null); return; }
   refreshChatPicker();
   await loadProgress(bookId);
+  if (runId !== bookRunId) return;
   await loadCourse(bookId);
+}
+
+/* Antes, si una fuente no tenía contenido importado, loadBookData volvía en silencio: el
+   lector quedaba vacío y la cabecera congelada en "Cargando las páginas originales…" sin
+   que nada explicara qué pasó. */
+function mostrarFuenteNoDisponible(selected, error) {
+  const titulo = selected?.title || "Esta fuente";
+  $("readerBookTitle").textContent = titulo;
+  $("readerBookMeta").textContent = "Esta fuente todavía no tiene su contenido cargado.";
+  $("pageContent").textContent = "";
+  $("courseHome").innerHTML = `<div class="lesson-error"><b>${esc(titulo)} todavía no está disponible.</b>`
+    + `<p>${esc(error?.message || "Su contenido no fue importado todavía. Elegí otra fuente en el selector de arriba.")}</p></div>`;
 }
 
 async function loadPrivateBookData(bookId, metaOnly = false) {
@@ -663,7 +707,7 @@ function renderMap(bookId) {
       const freshnessCopy = l.sourceStatus === "historical-clinical"
         ? " · Archivo clínico 2013 · verificar vigencia"
         : l.freshness === "revisar-hoy" ? " · Mundo hoy recomendado" : "";
-      html += `<button type="button" class="lesson-item ${id === nextId ? "next" : ""}" data-u="${ui}" data-l="${li}"><span class="chk">${d ? "✓" : String(l.chapter || li + 1).padStart(2, "0")}</span><span class="li-txt"><b>${esc(l.title)}</b><span>${esc(l.objective || "")}</span><small class="lesson-meta">PDF ${l.pageStart}–${l.pageEnd}${freshnessCopy}</small></span>${id === nextId ? `<em class="next-label">SEGUIR</em>` : ""}</button>`;
+      html += `<button type="button" class="lesson-item ${id === nextId ? "next" : ""}" data-u="${ui}" data-l="${li}"><span class="chk">${d ? "✓" : esc(String(l.chapter || li + 1).padStart(2, "0"))}</span><span class="li-txt"><b>${esc(l.title)}</b><span>${esc(l.objective || "")}</span><small class="lesson-meta">PDF ${esc(String(l.pageStart))}–${esc(String(l.pageEnd))}${freshnessCopy}</small></span>${id === nextId ? `<em class="next-label">SEGUIR</em>` : ""}</button>`;
     });
     html += `</div></section>`;
   });
@@ -684,39 +728,92 @@ function lessonValidationOptions(lesson, passages = []) {
   };
 }
 
+/* Token de generación: cada apertura de lección se numera. Si la alumna abre otra lección
+   (o cambia de libro) mientras una generación está en vuelo, la vieja se descarta en vez de
+   pisar la pantalla nueva y, sobre todo, en vez de guardarse en la caché del libro
+   equivocado. */
+let lessonRunId = 0;
+
 async function openLesson(ui, li) {
-  const u = course.units[ui]; const l = u.lessons[li]; curLesson = { ui, li, l, u };
+  const runId = ++lessonRunId;
+  const srcBook = book;                       // libro congelado para TODA esta generación
+  if (!srcBook) { toast("Esperá a que termine de cargar el libro."); return; }
+  const vigente = () => runId === lessonRunId && book === srcBook;
+
+  const u = course.units[ui]; const l = u.lessons[li];
+  curLesson = { ui, li, l, u, data: null, error: null };
   show("courseHome", false); show("lessonView", true);
   $("lessonTitle").textContent = l.title;
   $("lessonObjective").textContent = l.objective || "";
-  const body = $("lessonBody"); body.innerHTML = `<div class="spinner"></div><p style="text-align:center;color:#8a9aa4">Preparando tu lección con IA… ✨</p>`;
+  const body = $("lessonBody");
+  body.innerHTML = `<div class="spinner"></div><p style="text-align:center;color:#8a9aa4">Buscando en tu biblioteca…</p>`;
   const lid = lessonId(ui, li);
   try {
     let lesson = null;
-    const cacheSnap = await getDoc(doc(db, "books", book.id, "lessons", lid));
+    const cacheSnap = await getDoc(doc(db, "books", srcBook.id, "lessons", lid));
+    if (!vigente()) return;
     const cached = cacheSnap.exists() ? cacheSnap.data() : null;
-    if (lessonCacheIsCurrent(cached, book.contentVersion)) {
+    if (lessonCacheIsCurrent(cached, srcBook.contentVersion)) {
       try { lesson = normalizeLessonData(cached.data, lessonValidationOptions(l)); } catch { lesson = null; }
     }
     if (!lesson) {
       const passages = passagesForRange(l.pageStart, l.pageEnd, (l.title + " " + (l.topics || []).join(" ")));
       const evidenceCharacters = passages.reduce((total, passage) => total + String(passage.text || "").length, 0);
       if (passages.length < 2 || evidenceCharacters < 900) throw new Error("No encontré suficiente evidencia de esta sección para crear una lección fiable.");
-      body.innerHTML = `<div class="lesson-loader"><div class="spinner"></div><b>Construyendo desde el capítulo ${esc(l.chapter || "")}</b><span>Después verifico citas, opciones y respuestas antes de mostrarla.</span></div>`;
       const config = bookConfig();
-      const data = await apiChat({ task: "lesson", bookId: book.id, bookTitle: book.title, passages, mode: "flash", meta: { title: l.title, objective: l.objective, chapter: l.chapter, pageStart: l.pageStart, pageEnd: l.pageEnd, freshness: l.freshness, sourceStatus: l.sourceStatus || config?.sourceStatus || "", edition: config?.edition || "" } });
-      lesson = normalizeLessonData(data.result, lessonValidationOptions(l, passages));
-      try { await setDoc(doc(db, "books", book.id, "lessons", lid), { data: lesson, lessonVersion: LESSON_ENGINE_VERSION, sourceVersion: book.contentVersion || null, createdAt: serverTimestamp(), by: curUser.email }); } catch {}
+      /* Dos intentos automáticos: el modelo falla de vez en cuando (respuesta cortada o
+         JSON ilegible) y antes ese tropiezo llegaba a la pantalla como si la lección fuera
+         dudosa. El segundo intento la pide más compacta. */
+      const INTENTOS = 2;
+      let ultimoError = null;
+      for (let intento = 1; intento <= INTENTOS && !lesson; intento++) {
+        if (!vigente()) return;
+        body.innerHTML = `<div class="lesson-loader"><div class="spinner"></div><b>Construyendo desde el capítulo ${esc(l.chapter || "")}</b><span>${intento > 1
+          ? "El primer intento se cortó; la estoy rehaciendo más compacta."
+          : "Después verifico citas, opciones y respuestas antes de mostrarla."}</span></div>`;
+        try {
+          const data = await apiChat({ task: "lesson", bookId: srcBook.id, bookTitle: srcBook.title, passages, mode: "flash", meta: { title: l.title, objective: l.objective, chapter: l.chapter, pageStart: l.pageStart, pageEnd: l.pageEnd, freshness: l.freshness, sourceStatus: l.sourceStatus || config?.sourceStatus || "", edition: config?.edition || "", compact: intento > 1 } });
+          if (!vigente()) return;
+          lesson = normalizeLessonData(data.result, lessonValidationOptions(l, passages));
+        } catch (error) {
+          if (!vigente()) return;
+          ultimoError = error;
+        }
+      }
+      if (!lesson) throw ultimoError || new Error("No pude construir la lección.");
+      try { await setDoc(doc(db, "books", srcBook.id, "lessons", lid), { data: lesson, lessonVersion: LESSON_ENGINE_VERSION, sourceVersion: srcBook.contentVersion || null, createdAt: serverTimestamp(), by: curUser.email }); } catch {}
     }
-    curLesson.data = lesson; renderLessonSection("leccion");
+    if (!vigente()) return;
+    curLesson.data = lesson; curLesson.error = null;
+    renderLessonSection("leccion");
   } catch (e) {
-    body.innerHTML = `<div class="lesson-error"><b>No voy a mostrarte una lección dudosa.</b><p>${esc(e.message || e)}</p><button class="btn btn-mint btn-sm" id="retryLesson">Reintentar generación verificada</button></div>`;
-    $("retryLesson").onclick = () => openLesson(ui, li);
+    if (!vigente()) return;
+    curLesson.data = null;
+    curLesson.error = e?.message || String(e);
+    renderLessonError();
   }
+}
+
+/* Estado de error de la lección. Se pinta desde acá y también desde renderLessonSection,
+   para que cambiar de pestaña no muestre secciones vacías ("Sin flashcards") como si la
+   lección existiera pero viniera pobre. */
+function renderLessonError() {
+  const body = $("lessonBody");
+  const tecnico = /cort[oó]|incompleta|Reintentando|tard[oó] demasiado|Error 5\d\d/i.test(curLesson.error || "");
+  body.innerHTML = `<div class="lesson-error"><b>${tecnico
+    ? "No pude terminar de construir esta lección."
+    : "No voy a mostrarte una lección dudosa."}</b><p>${esc(curLesson.error || "")}</p>`
+    + `<button class="btn btn-mint btn-sm" id="retryLesson">Reintentar generación verificada</button></div>`;
+  const boton = $("retryLesson");
+  if (boton) boton.onclick = () => openLesson(curLesson.ui, curLesson.li);
 }
 function renderLessonSection(sec) {
   const d = curLesson.data || {}; const body = $("lessonBody");
   document.querySelectorAll("#lessonSecTabs button").forEach(b => b.classList.toggle("active", b.dataset.sec === sec));
+  /* Si la lección no llegó a construirse, ninguna pestaña puede fingir que sí: antes se
+     podía salir del error tocando Quiz y aparecía "Esta lección no trae quiz", como si la
+     fuente fuera pobre en vez de haber fallado la generación. */
+  if (curLesson.error && !curLesson.data) { renderLessonError(); return; }
   if (sec === "leccion") {
     const goals = (d.learningObjectives || []).map(goal => `<li>${esc(goal)}</li>`).join("");
     const terms = (d.keyTerms || []).map(t => `<div class="term"><b>${esc(t.term)}</b>: ${esc(t.def)}</div>`).join("");
@@ -1012,7 +1109,9 @@ async function sendChat() {
       meta: { sourceStatus: config?.sourceStatus || "", edition: config?.edition || "" },
     });
     thinking.remove();
-    const ans = data.answer || "(sin respuesta)"; addMsg("bot", md(ans));
+    /* Solo las páginas que de verdad se recuperaron pueden mostrarse como cita clicable. */
+    const paginasVerificadas = new Set(passages.map(p => Number(p.page)).filter(Number.isFinite));
+    const ans = data.answer || "(sin respuesta)"; addMsg("bot", md(ans, paginasVerificadas));
     chatHistory.push({ role: "user", content: (selText ? `[fragmento: ${selText.slice(0, 300)}] ` : "") + (q || "Explicame esto.") });
     chatHistory.push({ role: "assistant", content: ans });
     if (cacheKey) storeChatAnswer(cacheKey, ans);

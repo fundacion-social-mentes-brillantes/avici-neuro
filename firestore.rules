@@ -1,0 +1,97 @@
+rules_version = '2';
+
+/*
+  Reglas de Firestore de AVICI.
+
+  POR QUÉ ESTE ARCHIVO EXISTE
+  El servidor (api/_lib.js → isApproved) decide si alguien puede usar la IA y descargar
+  los PDF leyendo el campo `status` del documento users/{uid}. Ese documento lo crea el
+  propio navegador al entrar. Si las reglas dejaran que el usuario escriba su propio
+  `status`, cualquiera con una cuenta de Google podría abrir la consola, ponerse
+  status:"approved" y quedarse con el chat ilimitado y con los libros completos.
+
+  La regla clave es la de abajo: el usuario puede CREAR su documento (siempre en estado
+  "pending") y editar sus datos de perfil, pero NUNCA puede tocar `status` ni `role`.
+  Solo el administrador aprueba.
+
+  PARA PUBLICARLAS:
+    firebase deploy --only firestore:rules
+  o pegarlas en Firebase Console → Firestore Database → Reglas.
+*/
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function estaLogueado() {
+      return request.auth != null;
+    }
+    function esDueno(uid) {
+      return estaLogueado() && request.auth.uid == uid;
+    }
+    function esAdmin() {
+      return estaLogueado()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() == 'fundacionsocial@gimnasioemocionalmb.com';
+    }
+    function estaAprobado() {
+      return estaLogueado() && (
+        esAdmin() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved')
+      );
+    }
+    // Los campos que el usuario NO puede tocar nunca.
+    function noTocaPermisos() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['status', 'role', 'approvedAt', 'approvedBy']);
+    }
+
+    // ---- Perfil y permiso de acceso -------------------------------------------------
+    match /users/{uid} {
+      allow read: if esDueno(uid) || esAdmin();
+      // Al registrarse solo puede nacer como "pending". Nadie se auto-aprueba.
+      allow create: if esDueno(uid) && request.resource.data.status == 'pending';
+      // Puede actualizar su perfil, pero jamás su estado ni su rol.
+      allow update: if esAdmin() || (esDueno(uid) && noTocaPermisos());
+      allow delete: if esAdmin();
+
+      // Todo lo privado de la alumna: notas, progreso y conversaciones.
+      match /{sub=**} {
+        allow read, write: if esDueno(uid) || esAdmin();
+      }
+    }
+
+    // ---- Libros: contenido y caché compartida ---------------------------------------
+    // Solo cuentas aprobadas. La caché de lecciones se comparte a propósito (una lección
+    // verificada sirve para todos), pero nadie sin aprobar puede leerla ni escribirla.
+    match /books/{bookId} {
+      allow read: if estaAprobado();
+      allow write: if esAdmin();
+
+      match /lessons/{lessonId} {
+        allow read: if estaAprobado();
+        allow create, update: if estaAprobado();
+        allow delete: if esAdmin();
+      }
+      match /course/{docId} {
+        allow read: if estaAprobado();
+        allow create, update: if estaAprobado();
+        allow delete: if esAdmin();
+      }
+      match /contrast/{docId} {
+        allow read: if estaAprobado();
+        allow create, update: if estaAprobado();
+        allow delete: if esAdmin();
+      }
+      match /bundles/{docId} {
+        allow read: if estaAprobado();
+        allow write: if esAdmin();
+      }
+    }
+
+    // Todo lo demás queda cerrado.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

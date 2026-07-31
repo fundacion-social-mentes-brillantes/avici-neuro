@@ -19,7 +19,12 @@ export async function verifyUser(req) {
       issuer: `https://securetoken.google.com/${PROJECT}`,
       audience: PROJECT,
     });
-    return { uid: payload.user_id || payload.sub, email: payload.email || "", token: m[1] };
+    return {
+      uid: payload.user_id || payload.sub,
+      email: payload.email || "",
+      emailVerificado: payload.email_verified === true,
+      token: m[1],
+    };
   } catch {
     return null;
   }
@@ -29,7 +34,9 @@ export async function verifyUser(req) {
 // con su ID token (las reglas permiten leer el doc propio). Ante cualquier error,
 // falla cerrado: un problema de red nunca debe convertirse en permiso de acceso.
 export async function isApproved(user) {
-  if ((user.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase()) return true;
+  /* El atajo de administrador exige ademas que el correo este verificado: sin eso, un
+     proveedor de identidad que no verifique el mail bastaria para suplantar al admin. */
+  if (user.emailVerificado && (user.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase()) return true;
   try {
     const url = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents/users/${user.uid}`;
     const r = await fetch(url, { headers: { Authorization: `Bearer ${user.token}` } });

@@ -3,7 +3,25 @@ import assert from "node:assert/strict";
 import { ADMIN_EMAIL, isApproved } from "../api/_lib.js";
 
 test("el administrador conserva acceso sin depender de Firestore", async () => {
-  assert.equal(await isApproved({ email: ADMIN_EMAIL, uid: "admin", token: "token" }), true);
+  assert.equal(
+    await isApproved({ email: ADMIN_EMAIL, uid: "admin", token: "token", emailVerificado: true }),
+    true,
+  );
+});
+
+test("el atajo de administrador exige el correo verificado", async () => {
+  // Sin email verificado no alcanza con que el correo coincida: si no, un proveedor de
+  // identidad que no verifique el mail bastaría para entrar como administrador.
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ fields: { status: { stringValue: "pending" } } }) });
+    assert.equal(
+      await isApproved({ email: ADMIN_EMAIL, uid: "admin", token: "token", emailVerificado: false }),
+      false,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("la verificación de aprobación falla cerrada", async () => {
