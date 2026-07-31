@@ -388,7 +388,10 @@ let studyInit = false, book = null, bookIndex = null, curPage = 1, chatHistory =
 let course = null, progress = {}, curLesson = null;
 let openCourseUnits = new Set();
 const READER_PREFS_KEY = "avici-reader-preferences-v1";
-let readerPrefs = { scale: 1, theme: "paper", family: "serif", layout: "fluid", view: "visual" };
+/* Arranca en "text": ese texto sale de Firestore y no cuesta transferencia. La vista
+   "visual" descarga trozos del PDF original (Thibodeau pesa 461 MB), asi que se abre
+   solo cuando ella la pide, no en cada pagina que pasa. */
+let readerPrefs = { scale: 1, theme: "paper", family: "serif", layout: "fluid", view: "text" };
 let readerPdfDoc = null, readerPdfBookId = "", readerPdfLoading = null, readerPdfRenderTask = null, readerPdfRenderId = 0;
 const BADGE = { primera:{emoji:"🎓",label:"Primera lección"}, cinco:{emoji:"⭐",label:"5 lecciones"}, perfecto:{emoji:"💯",label:"Quiz perfecto"}, racha3:{emoji:"🔥",label:"Racha de 3 días"}, unidad:{emoji:"🏅",label:"Unidad completa"}, curso:{emoji:"👑",label:"¡Curso completo!"} };
 function totalLessons() { let t = 0; ((course && course.units) || []).forEach(u => t += (u.lessons || []).length); return t; }

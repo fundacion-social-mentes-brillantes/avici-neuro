@@ -62,9 +62,19 @@ export default async function handler(req, res) {
   const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
   if (!sourceUrl || !blobToken) { res.status(503).json({ error: "La edición visual de este libro todavía no está disponible." }); return; }
 
+  /* Si quien lee se va, hay que cortar TAMBIEN la descarga desde el almacenamiento.
+     PDF.js abre el documento con una peticion sin Range y la aborta apenas lee las
+     cabeceras, pero la funcion seguia bajando el PDF entero (461 MB) para tirarlo a la
+     basura. Eso se cobra como transferencia: asi se consumio casi toda la cuota mensual. */
+  const cortar = new AbortController();
+  res.on("close", () => cortar.abort());
+
   let upstream;
-  try { upstream = await fetch(sourceUrl, { method: req.method, headers: upstreamRequestHeaders(req.headers, blobToken) }); }
-  catch { res.status(502).json({ error: "No se pudo abrir la página original." }); return; }
+  try { upstream = await fetch(sourceUrl, { method: req.method, headers: upstreamRequestHeaders(req.headers, blobToken), signal: cortar.signal }); }
+  catch {
+    if (!res.writableEnded && !res.destroyed) res.status(502).json({ error: "No se pudo abrir la página original." });
+    return;
+  }
 
   /* Cualquier respuesta que no sea el contenido pedido (304 sin cuerpo, o un error del
      almacenamiento) se corta acá: entregarla como application/pdf le daría bytes falsos
@@ -75,5 +85,7 @@ export default async function handler(req, res) {
   res.status(upstream.status);
 
   if (req.method === "HEAD" || !upstream.body) { res.end(); return; }
-  Readable.fromWeb(upstream.body).pipe(res);
+  const cuerpo = Readable.fromWeb(upstream.body);
+  res.on("close", () => cuerpo.destroy());
+  cuerpo.pipe(res);
 }
