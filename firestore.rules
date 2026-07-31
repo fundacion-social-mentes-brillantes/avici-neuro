@@ -49,8 +49,15 @@ service cloud.firestore {
     // ---- Perfil y permiso de acceso -------------------------------------------------
     match /users/{uid} {
       allow read: if esDueno(uid) || esAdmin();
-      // Al registrarse solo puede nacer como "pending". Nadie se auto-aprueba.
-      allow create: if esDueno(uid) && request.resource.data.status == 'pending';
+      /* Al registrarse el documento solo puede nacer como "pending".
+         La única excepción es el administrador creando el suyo: la app se lo escribe
+         como "approved" (app.js → ensureUserDoc), y acá se comprueba contra el TOKEN,
+         no contra lo que diga el navegador. Ese es justamente el agujero que se cierra:
+         cualquiera podía escribirse status:"approved" desde la consola. */
+      allow create: if esDueno(uid) && (
+        request.resource.data.status == 'pending'
+        || (esAdmin() && request.resource.data.status == 'approved')
+      );
       // Puede actualizar su perfil, pero jamás su estado ni su rol.
       allow update: if esAdmin() || (esDueno(uid) && noTocaPermisos());
       allow delete: if esAdmin();
