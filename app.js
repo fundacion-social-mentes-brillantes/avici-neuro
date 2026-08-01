@@ -544,8 +544,22 @@ function setupReaderControls() {
     if (e.key === "ArrowLeft") { e.preventDefault(); renderPage(curPage - 1); }
     if (e.key === "ArrowRight") { e.preventDefault(); renderPage(curPage + 1); }
   });
-  let resizeTimer = null;
-  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (book && readerPrefs.view === "visual" && $("panel-libro").classList.contains("active")) renderPdfPage(curPage); }, 180); });
+  /* Solo se vuelve a dibujar si cambió el ANCHO disponible, que es lo único que altera el
+     tamaño del render. En el celular, al aparecer o irse la barra del navegador se dispara
+     `resize` por un cambio de alto: antes eso tapaba la página con el spinner y la
+     redibujaba entera mientras ella estaba leyendo. */
+  let resizeTimer = null, anchoRenderizado = 0;
+  const anchoActual = () => Math.round(($("readerPdfFrame")?.clientWidth || 0) * readerPrefs.scale);
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (!book || readerPrefs.view !== "visual" || !$("panel-libro").classList.contains("active")) return;
+      const ancho = anchoActual();
+      if (!ancho || Math.abs(ancho - anchoRenderizado) < 8) return;
+      anchoRenderizado = ancho;
+      renderPdfPage(curPage);
+    }, 180);
+  });
 }
 
 function playWelcome(user) {
