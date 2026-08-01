@@ -11,6 +11,8 @@ const VERSION_SAS = "2022-11-02";
 /* Los libros que viven en Azure. El resto sigue sirviéndose por el proxy de siempre. */
 export const LIBROS_AZURE = {
   thibodeau: { contenedor: "libros", blob: "thibodeau.pdf" },
+  mazarrasa: { contenedor: "libros", blob: "mazarrasa.pdf" },
+  vacunador: { contenedor: "libros", blob: "vacunador.pdf" },
 };
 
 export function libroAzure(id) {

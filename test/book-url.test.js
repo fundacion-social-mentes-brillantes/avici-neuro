@@ -16,6 +16,8 @@ function responseMock() {
 test("solo los libros declarados tienen entrega directa", () => {
   assert.equal(libroAzure("thibodeau").blob, "thibodeau.pdf");
   assert.equal(libroAzure("THIBODEAU").contenedor, "libros");
+  assert.equal(libroAzure("mazarrasa").blob, "mazarrasa.pdf");
+  assert.equal(libroAzure("vacunador").blob, "vacunador.pdf");
   assert.equal(libroAzure("otro"), null);
   assert.equal(libroAzure(""), null);
 });
