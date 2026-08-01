@@ -392,7 +392,7 @@ const READER_PREFS_KEY = "avici-reader-preferences-v1";
    "visual" descarga trozos del PDF original (Thibodeau pesa 461 MB), asi que se abre
    solo cuando ella la pide, no en cada pagina que pasa. */
 let readerPrefs = { scale: 1, theme: "paper", family: "serif", layout: "fluid", view: "text" };
-let readerPdfDoc = null, readerPdfBookId = "", readerPdfLoading = null, readerPdfRenderTask = null, readerPdfRenderId = 0;
+let readerPdfDoc = null, readerPdfBookId = "", readerPdfLoading = null, readerPdfRenderTask = null, readerPdfRenderId = 0, readerPdfRunId = 0;
 const BADGE = { primera:{emoji:"🎓",label:"Primera lección"}, cinco:{emoji:"⭐",label:"5 lecciones"}, perfecto:{emoji:"💯",label:"Quiz perfecto"}, racha3:{emoji:"🔥",label:"Racha de 3 días"}, unidad:{emoji:"🏅",label:"Unidad completa"}, curso:{emoji:"👑",label:"¡Curso completo!"} };
 function totalLessons() { let t = 0; ((course && course.units) || []).forEach(u => t += (u.lessons || []).length); return t; }
 function anyUnitComplete() { return ((course && course.units) || []).some((u, ui) => (u.lessons || []).length > 0 && (u.lessons || []).every((l, li) => progress.done && progress.done[lessonId(ui, li)])); }
@@ -441,15 +441,21 @@ async function resetReaderPdf() {
 }
 async function ensureReaderPdf() {
   if (!book?.id) throw new Error("No hay un libro visual seleccionado.");
-  if (readerPdfDoc && readerPdfBookId === book.id) return readerPdfDoc;
-  if (readerPdfLoading && readerPdfBookId === book.id) return readerPdfLoading;
+  /* El id se fija ACÁ y no se vuelve a leer de `book`, que puede cambiar durante los await.
+     Antes la comprobación final comparaba contra la variable global: si mientras tanto
+     empezaba a cargarse otro libro, el documento viejo pasaba el control y se publicaba
+     como si fuera el nuevo. El token descarta cualquier carga que ya quedó obsoleta. */
+  const bookId = book.id;
+  if (readerPdfDoc && readerPdfBookId === bookId) return readerPdfDoc;
+  if (readerPdfLoading && readerPdfBookId === bookId) return readerPdfLoading;
   await resetReaderPdf();
-  readerPdfBookId = book.id;
+  const runId = ++readerPdfRunId;
+  readerPdfBookId = bookId;
   readerPdfLoading = (async () => {
     const token = auth.currentUser ? await auth.currentUser.getIdToken() : "";
     if (!token) throw new Error("Volvé a iniciar sesión para abrir la página visual.");
     const task = pdfjsLib.getDocument({
-      url: `/api/book-pdf?id=${encodeURIComponent(book.id)}`,
+      url: `/api/book-pdf?id=${encodeURIComponent(bookId)}`,
       httpHeaders: { Authorization: `Bearer ${token}` },
       rangeChunkSize: 262144,
       disableAutoFetch: true,
@@ -462,13 +468,21 @@ async function ensureReaderPdf() {
       wasmUrl: "/vendor/pdfjs/wasm/",
     });
     const doc = await task.promise;
-    if (readerPdfBookId !== book.id) { await doc.destroy(); throw new Error("El libro cambió durante la carga."); }
+    if (runId !== readerPdfRunId || readerPdfBookId !== bookId) { await doc.destroy(); throw new Error("El libro cambió durante la carga."); }
     readerPdfDoc = doc; readerPdfLoading = null;
     return doc;
-  })().catch(error => { readerPdfLoading = null; throw error; });
+  })().catch(error => { if (runId === readerPdfRunId) readerPdfLoading = null; throw error; });
   return readerPdfLoading;
 }
-async function renderPdfPage(pageNumber) {
+/* El ID token de Firebase se le entrega a PDF.js una sola vez, al abrir el documento, y
+   caduca a la hora. Pasado ese rato el proxy contesta 403 y la vista visual quedaba muerta
+   hasta recargar la página, justo cuando lleva un rato estudiando. */
+function esErrorDeCredencial(error) {
+  const texto = `${error?.name || ""} ${error?.message || ""} ${error?.status || ""}`.toLowerCase();
+  return texto.includes("401") || texto.includes("403") || texto.includes("no autorizado")
+    || texto.includes("unauthorized") || texto.includes("forbidden") || texto.includes("unexpectedresponse");
+}
+async function renderPdfPage(pageNumber, reintento = false) {
   const frame = $("readerPdfFrame"), canvas = $("readerPdfCanvas"), loading = $("readerPdfLoading");
   if (!frame || !canvas || readerPrefs.view !== "visual") return;
   const renderId = ++readerPdfRenderId;
@@ -492,6 +506,12 @@ async function renderPdfPage(pageNumber) {
     canvas.classList.add("ready"); loading.classList.add("hidden");
   } catch (error) {
     if (error?.name === "RenderingCancelledException" || renderId !== readerPdfRenderId) return;
+    /* Credencial vencida: se tira el documento y se rehace una sola vez con un token nuevo,
+       en silencio. Firebase renueva el token solo al pedirlo de nuevo. */
+    if (!reintento && esErrorDeCredencial(error)) {
+      await resetReaderPdf();
+      return renderPdfPage(pageNumber, true);
+    }
     loading.classList.add("error");
     loading.innerHTML = `<p><b>No pude abrir la página visual.</b><br>${esc(error?.message || error)}<br><br>Podés seguir leyendo en la vista Lectura.</p>`;
   }
@@ -598,7 +618,7 @@ async function selectBook(bookId) {
   $("readerBookTitle").textContent = selected?.title || "Preparando tu libro…";
   $("readerBookMeta").textContent = "Cargando las páginas originales y tus preferencias de lectura.";
   try {
-    await loadBookData(bookId);
+    await loadBookData(bookId, runId);
   } catch (error) {
     if (runId !== bookRunId) return;
     mostrarFuenteNoDisponible(selected, error);
@@ -635,7 +655,12 @@ async function loadPrivateBookData(bookId, metaOnly = false) {
   return payload;
 }
 
-async function loadBookData(bookId) {
+/* `runId` es el mismo token de selectBook. Sin él, esta función terminaba de descargar un
+   libro lento y se apropiaba del lector aunque la alumna ya hubiera elegido otro: el
+   selector y el curso decían una fuente y las páginas, el buscador y las citas del chat
+   venían de otra. */
+async function loadBookData(bookId, runId = bookRunId) {
+  const vigente = () => runId === bookRunId;
   show("bookLoading", true); $("bookLoadingTxt").textContent = "Cargando libro…";
   try {
     const cache = await idb(); let data = await cache.get(bookId);
@@ -651,7 +676,7 @@ async function loadBookData(bookId) {
         privateMeta = { title: data.title, contentVersion: data.cacheVersion, cacheVersion: data.cacheVersion };
       }
     }
-    if (!m && !privateMeta && (!data || !data.pages)) { show("bookLoading", false); return; }
+    if (!m && !privateMeta && (!data || !data.pages)) { if (vigente()) show("bookLoading", false); return; }
     const metaVersion = m
       ? (m.contentVersion || (m.updatedAt?.toMillis ? m.updatedAt.toMillis() : null) || `legacy:${m.pageCount || 0}:${m.bundleCount || 0}`)
       : privateMeta?.contentVersion || privateMeta?.cacheVersion || data?.cacheVersion;
@@ -667,6 +692,9 @@ async function loadBookData(bookId) {
       }
       await cache.put(bookId, data);
     }
+    /* La descarga ya quedó guardada en caché, pero solo se adopta como libro activo si
+       sigue siendo el que la alumna tiene elegido. */
+    if (!vigente()) return;
     if (m) { data.title = m.title || data.title; data.contentVersion = m.contentVersion || null; data.cacheVersion = metaVersion; }
     book = data;
     $("readerBookTitle").textContent = book.title || "Libro activo";
@@ -674,8 +702,12 @@ async function loadBookData(bookId) {
     $("bookLoadingTxt").textContent = "Preparando buscador…";
     bookIndex = buildIndex(book.pages);
     renderPage(1);
-  } catch (e) { $("readerBookMeta").textContent = "No se pudo preparar el lector."; $("pageContent").innerHTML = `<div class="empty">No se pudo cargar el libro: ${esc(e.message || e)}</div>`; }
-  show("bookLoading", false);
+  } catch (e) {
+    if (!vigente()) return;   // el error es de una fuente que ya nadie está mirando
+    $("readerBookMeta").textContent = "No se pudo preparar el lector.";
+    $("pageContent").innerHTML = `<div class="empty">No se pudo cargar el libro: ${esc(e.message || e)}</div>`;
+  }
+  if (vigente()) show("bookLoading", false);
 }
 
 function buildIndex(pages) {
@@ -1175,7 +1207,15 @@ function addMsg(role, html, cls = "") { const d = document.createElement("div");
 function renderChatMessages() {
   const box = $("chatMsgs"); box.innerHTML = "";
   if (!chatHistory.length) { box.innerHTML = `<div class="empty"><b>La memoria está limpia.</b><br>Traé una duda, una relación clínica o algo que quieras entender de verdad.</div>`; return; }
-  chatHistory.forEach(m => addMsg(m.role === "assistant" ? "bot" : "user", m.role === "assistant" ? md(m.content) : esc(m.content)));
+  /* Al reabrir una conversación guardada se respetan las páginas que se verificaron cuando
+     se generó la respuesta (`m.pages`). Si el mensaje es viejo y no las trae, se usa un
+     conjunto vacío a propósito: ninguna cita queda clicable. Falla del lado seguro, porque
+     dar por verificada una página que quizá el modelo inventó es peor que no ofrecer el
+     atajo. */
+  chatHistory.forEach(m => addMsg(
+    m.role === "assistant" ? "bot" : "user",
+    m.role === "assistant" ? md(m.content, new Set(Array.isArray(m.pages) ? m.pages : [])) : esc(m.content)
+  ));
 }
 function startChats(user) {
   const col = collection(db, "users", user.uid, "chats");
@@ -1213,17 +1253,23 @@ async function persistChat() {
 function cacheKeyForChat(question, mode) {
   const sourceVersion = book?.contentVersion || book?.cacheVersion || "legacy";
   const userScope = curUser?.uid || "anonymous";
-  return `chatc|${CHAT_CACHE_VERSION}|${userScope}|${book.id}|${sourceVersion}|${mode}|${question.toLowerCase()}`;
+  /* La lección abierta entra en la clave porque entra en la respuesta: retrievalQuery le
+     suma su título y sus temas, así que la misma pregunta desde dos lecciones distintas
+     recupera fragmentos distintos y merece respuestas distintas. */
+  const leccion = curLesson ? `${curLesson.ui}-${curLesson.li}` : "sin-leccion";
+  return `chatc|${CHAT_CACHE_VERSION}|${userScope}|${book.id}|${sourceVersion}|${leccion}|${mode}|${question.toLowerCase()}`;
 }
+/* La caché guarda también qué páginas se habían verificado, para que una respuesta reusada
+   conserve exactamente las mismas citas clicables que tuvo la primera vez. */
 function cachedChatAnswer(key) {
   try {
     const raw = localStorage.getItem(key); if (!raw) return null;
     const item = JSON.parse(raw);
     if (!item || typeof item.answer !== "string" || Date.now() - item.createdAt > CHAT_CACHE_TTL) { localStorage.removeItem(key); return null; }
-    return item.answer;
+    return { answer: item.answer, pages: Array.isArray(item.pages) ? item.pages : [] };
   } catch { return null; }
 }
-function storeChatAnswer(key, answer) { try { localStorage.setItem(key, JSON.stringify({ answer, createdAt: Date.now() })); } catch {} }
+function storeChatAnswer(key, answer, pages = []) { try { localStorage.setItem(key, JSON.stringify({ answer, pages, createdAt: Date.now() })); } catch {} }
 function retrievalQuery(question, selectedText) {
   const recent = chatHistory.slice(-8).map(m => String(m.content || "").slice(0, m.role === "assistant" ? 650 : 1000)).join(" ");
   const lessonContext = curLesson ? `${curLesson.l.title} ${(curLesson.l.topics || []).join(" ")}` : "";
@@ -1241,7 +1287,11 @@ async function sendChat() {
   // caché para ahorrar tokens: preguntas sueltas (primer mensaje, sin selección)
   const cacheKey = (!selText && chatHistory.length === 0) ? cacheKeyForChat(q, mode) : null;
   const cached = cacheKey ? cachedChatAnswer(cacheKey) : null;
-  if (cached) { addMsg("bot", md(cached)); chatHistory.push({ role: "user", content: q }, { role: "assistant", content: cached }); setChatSignal("Respuesta local · 0 tokens", "cached"); persistChat(); return; }
+  if (cached) {
+    addMsg("bot", md(cached.answer, new Set(cached.pages)));
+    chatHistory.push({ role: "user", content: q }, { role: "assistant", content: cached.answer, pages: cached.pages });
+    setChatSignal("Respuesta local · 0 tokens", "cached"); persistChat(); return;
+  }
   chatBusy = true; $("chatSend").disabled = true; $("chatInput").setAttribute("aria-busy", "true"); setChatSignal("Razonando con el libro", "thinking");
   const thinking = addMsg("bot", `<span class="think dots">Procesando · V4 Flash</span>`, "think");
   try {
@@ -1255,7 +1305,9 @@ async function sendChat() {
       passages,
       question: q,
       selectedText: selText,
-      history: chatHistory.slice(-20),
+      /* Solo role y content: el historial guarda además las páginas verificadas de cada
+         respuesta, y mandar campos extra a una API compatible con OpenAI la hace fallar. */
+      history: chatHistory.slice(-20).map(m => ({ role: m.role, content: m.content })),
       mode,
       meta: { sourceStatus: config?.sourceStatus || "", edition: config?.edition || "" },
     });
@@ -1263,9 +1315,10 @@ async function sendChat() {
     /* Solo las páginas que de verdad se recuperaron pueden mostrarse como cita clicable. */
     const paginasVerificadas = new Set(passages.map(p => Number(p.page)).filter(Number.isFinite));
     const ans = data.answer || "(sin respuesta)"; addMsg("bot", md(ans, paginasVerificadas));
+    const paginas = [...paginasVerificadas];
     chatHistory.push({ role: "user", content: (selText ? `[fragmento: ${selText.slice(0, 300)}] ` : "") + (q || "Explicame esto.") });
-    chatHistory.push({ role: "assistant", content: ans });
-    if (cacheKey) storeChatAnswer(cacheKey, ans);
+    chatHistory.push({ role: "assistant", content: ans, pages: paginas });
+    if (cacheKey) storeChatAnswer(cacheKey, ans, paginas);
     const hit = Number(data.usage?.prompt_cache_hit_tokens || 0), miss = Number(data.usage?.prompt_cache_miss_tokens || 0);
     const cachePct = hit + miss ? Math.round(hit / (hit + miss) * 100) : null;
     setChatSignal(`V4 Flash${cachePct == null ? "" : ` · caché ${cachePct}%`}`, "ready");
