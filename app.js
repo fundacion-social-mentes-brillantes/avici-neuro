@@ -454,9 +454,16 @@ async function ensureReaderPdf() {
   readerPdfLoading = (async () => {
     const token = auth.currentUser ? await auth.currentUser.getIdToken() : "";
     if (!token) throw new Error("Volvé a iniciar sesión para abrir la página visual.");
+    /* Si el libro tiene entrega directa, el navegador lo baja del almacenamiento sin pasar
+       por el servidor: no gasta transferencia de la plataforma y llega antes. El enlace es
+       temporal; cuando vence, renderPdfPage rehace el documento con uno nuevo. */
+    let origen = { url: `/api/book-pdf?id=${encodeURIComponent(bookId)}`, httpHeaders: { Authorization: `Bearer ${token}` } };
+    try {
+      const r = await fetch(`/api/book-url?id=${encodeURIComponent(bookId)}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (r.ok) { const d = await r.json(); if (d?.url) origen = { url: d.url }; }
+    } catch { /* sin entrega directa se usa el proxy de siempre */ }
     const task = pdfjsLib.getDocument({
-      url: `/api/book-pdf?id=${encodeURIComponent(bookId)}`,
-      httpHeaders: { Authorization: `Bearer ${token}` },
+      ...origen,
       rangeChunkSize: 262144,
       disableAutoFetch: true,
       disableStream: true,
