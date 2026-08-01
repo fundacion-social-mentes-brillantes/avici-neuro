@@ -273,9 +273,17 @@ export function normalizeLessonData(raw, { allowedPages = [], timeSensitive = fa
   return { content, learningObjectives, keyTerms, quiz, flashcards, challenge };
 }
 
-export function lessonCacheIsCurrent(cached, sourceVersion) {
+/* `courseVersion` entra en la comparación porque el rango de páginas, el título y el
+   objetivo de la lección viven en el catálogo del curso: si se corrige el capítulo que
+   cubre una lección, el libro no cambió y el motor tampoco, pero la lección guardada quedó
+   construida con el rango viejo y seguiría mostrándose con el título nuevo.
+   Una lección vieja que no guardó su versión de curso se respeta, para no obligar a
+   regenerar de golpe todo lo que ya está bien. */
+export function lessonCacheIsCurrent(cached, sourceVersion, courseVersion) {
   if (!cached || cached.lessonVersion !== LESSON_ENGINE_VERSION) return false;
-  return !sourceVersion || cached.sourceVersion === sourceVersion;
+  if (sourceVersion && cached.sourceVersion !== sourceVersion) return false;
+  if (courseVersion && cached.courseVersion && cached.courseVersion !== courseVersion) return false;
+  return true;
 }
 
 export function shuffleCards(cards, random = Math.random) {

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { courseAudit, getCuratedCourse } from "../course-catalog.js";
-import { frameHistoricalLesson, LessonValidationError, MASTERY_SCORE, normalizeLessonData, shuffleCards } from "../learning-utils.js";
+import { frameHistoricalLesson, LESSON_ENGINE_VERSION, LessonValidationError, lessonCacheIsCurrent, MASTERY_SCORE, normalizeLessonData, shuffleCards } from "../learning-utils.js";
 
 function validLesson(page = 23) {
   const cite = `(pág. ${page})`;
@@ -172,4 +172,19 @@ test("las flashcards se mezclan sin alterar el mazo original", () => {
   const shuffled = shuffleCards(cards, () => 0);
   assert.deepEqual(cards.map(card => card.front), ["A", "B", "C"]);
   assert.deepEqual(shuffled.map(card => card.front), ["B", "C", "A"]);
+});
+
+/* Regresión: si se corrige el capítulo que cubre una lección (rango de páginas, título u
+   objetivo viven en el catálogo del curso), la lección guardada quedó construida con datos
+   viejos aunque el libro y el motor no hayan cambiado. */
+test("la lección guardada caduca cuando cambia la versión del curso", () => {
+  const guardada = { lessonVersion: LESSON_ENGINE_VERSION, sourceVersion: "libro-r1", courseVersion: "v3" };
+  assert.equal(lessonCacheIsCurrent(guardada, "libro-r1", "v3"), true);
+  assert.equal(lessonCacheIsCurrent(guardada, "libro-r1", "v4"), false, "un curso nuevo debe invalidarla");
+  assert.equal(lessonCacheIsCurrent(guardada, "libro-r2", "v3"), false, "un libro nuevo debe invalidarla");
+});
+
+test("una lección vieja sin versión de curso se respeta y no fuerza regenerar todo", () => {
+  const legacy = { lessonVersion: LESSON_ENGINE_VERSION, sourceVersion: "libro-r1" };
+  assert.equal(lessonCacheIsCurrent(legacy, "libro-r1", "v3"), true);
 });

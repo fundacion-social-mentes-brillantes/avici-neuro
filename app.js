@@ -936,7 +936,7 @@ async function openLesson(ui, li) {
     const cacheSnap = await getDoc(doc(db, "books", srcBook.id, "lessons", lid));
     if (!vigente()) return;
     const cached = cacheSnap.exists() ? cacheSnap.data() : null;
-    if (lessonCacheIsCurrent(cached, srcBook.contentVersion)) {
+    if (lessonCacheIsCurrent(cached, srcBook.contentVersion, COURSE_ENGINE_VERSION)) {
       try { lesson = normalizeLessonData(cached.data, lessonValidationOptions(l)); } catch { lesson = null; }
     }
     if (!lesson) {
@@ -964,7 +964,7 @@ async function openLesson(ui, li) {
         }
       }
       if (!lesson) throw ultimoError || new Error("No pude construir la lección.");
-      try { await setDoc(doc(db, "books", srcBook.id, "lessons", lid), { data: lesson, lessonVersion: LESSON_ENGINE_VERSION, sourceVersion: srcBook.contentVersion || null, createdAt: serverTimestamp(), by: curUser.email }); } catch {}
+      try { await setDoc(doc(db, "books", srcBook.id, "lessons", lid), { data: lesson, lessonVersion: LESSON_ENGINE_VERSION, sourceVersion: srcBook.contentVersion || null, courseVersion: COURSE_ENGINE_VERSION, createdAt: serverTimestamp(), by: curUser.email }); } catch {}
     }
     if (!vigente()) return;
     curLesson.data = lesson; curLesson.error = null;
