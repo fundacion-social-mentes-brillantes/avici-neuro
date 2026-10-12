@@ -1,0 +1,240 @@
+{
+  "id": "en-a1-01",
+  "coach": {
+    "intro": {
+      "text": "Hi! I'm Matilda, your English coach. Don't worry, I don't bite. Today you're going to meet Daniel. He's from Medellín, he's new in Chicago, and he's... very, very nervous. Let's help him!",
+      "say": "[cheerfully] Hi! I'm Matilda, your English coach. [laughs] Don't worry, I don't bite. Today you're going to meet Daniel. He's from Medellín, he's new in Chicago, and he's... [whispers] very, very nervous. [excited] Let's help him!",
+      "es": "¡Hola! Soy Matilda, tu coach de inglés. Tranquilo, no muerdo. Hoy vas a conocer a Daniel: es de Medellín, acaba de llegar a Chicago y está muy, muy nervioso. ¡Vamos a ayudarlo!"
+    },
+    "outro": {
+      "text": "Great job! Now you can say hello, spell your name and survive your first day in English. Daniel says thank you. Me too! See you in the next lesson.",
+      "say": "[excited] Great job! Now you can say hello, spell your name and survive your first day in English. [laughs] Daniel says thank you. Me too! [warmly] See you in the next lesson.",
+      "es": "¡Muy bien! Ya puedes saludar, deletrear tu nombre y sobrevivir a tu primer día en inglés. Daniel te da las gracias. ¡Y yo también! Nos vemos en la próxima lección."
+    }
+  },
+  "warmup": {
+    "question": "Antes de empezar: ¿cuántas formas de saludar y de despedirte en inglés conoces? Escríbelas todas, aunque no estés seguro de cómo se escriben.",
+    "tryFirst": [
+      { "type": "translate", "instruction": "Inténtalo antes de la explicación: traduce al inglés.", "q": "Soy de Colombia.", "answers": ["I'm from Colombia.", "I am from Colombia."], "explain": "En inglés hay que decir el sujeto: I'm from Colombia. Si escribiste «Am from Colombia», tranquilo: es justo lo que vas a aprender hoy.", "target": "a1.be" },
+      { "type": "choice", "instruction": "Inténtalo aunque no estés seguro de la respuesta.", "q": "¿Cómo se dice «mucho gusto» cuando conoces a alguien?", "options": ["Nice to meet you.", "Very taste.", "Much pleasure."], "answer": 0, "explain": "«Very taste» es una traducción palabra por palabra que ningún angloparlante entiende. Se dice Nice to meet you.", "target": "a1.f.greet" },
+      { "type": "gap", "instruction": "Adivina la palabra que falta.", "q": "My name ___ Daniel.", "answers": ["is"], "explain": "My name is Daniel: con my name (equivale a it) va is.", "target": "a1.be" }
+    ]
+  },
+  "vocabulary": [
+    { "term": "hello", "ipa": "/heˈloʊ/", "pos": "interjection", "meaning": "hola", "example": "Hello, I'm Emma.", "exampleMeaning": "Hola, soy Emma." },
+    { "term": "hi", "ipa": "/haɪ/", "pos": "interjection", "meaning": "hola (informal)", "example": "Hi, Daniel! How are you?", "exampleMeaning": "¡Hola, Daniel! ¿Cómo estás?" },
+    { "term": "good morning", "ipa": "/ɡʊd ˈmɔːr.nɪŋ/", "pos": "expression", "meaning": "buenos días (hasta el mediodía)", "example": "Good morning! Welcome to the school.", "exampleMeaning": "¡Buenos días! Bienvenido a la escuela." },
+    { "term": "good afternoon", "ipa": "/ɡʊd ˌæf.tɚˈnuːn/", "pos": "expression", "meaning": "buenas tardes (más o menos hasta las seis)", "example": "Good afternoon, Mr. Clark.", "exampleMeaning": "Buenas tardes, señor Clark." },
+    { "term": "good evening", "ipa": "/ɡʊd ˈiːv.nɪŋ/", "pos": "expression", "meaning": "buenas noches (al llegar)", "example": "Good evening, everyone. Welcome!", "exampleMeaning": "Buenas noches a todos. ¡Bienvenidos!" },
+    { "term": "good night", "ipa": "/ɡʊd ˈnaɪt/", "pos": "expression", "meaning": "buenas noches (al irse o antes de dormir)", "example": "Good night! See you tomorrow.", "exampleMeaning": "¡Buenas noches! Nos vemos mañana." },
+    { "term": "goodbye", "ipa": "/ɡʊdˈbaɪ/", "pos": "interjection", "meaning": "adiós", "example": "Goodbye, Emma! Have a nice day.", "exampleMeaning": "¡Adiós, Emma! Que tengas un buen día." },
+    { "term": "see you later", "ipa": "/ˈsiː juː ˈleɪ.t̬ɚ/", "pos": "expression", "meaning": "nos vemos, hasta luego", "example": "Bye, Daniel! See you later.", "exampleMeaning": "¡Chao, Daniel! Nos vemos." },
+    { "term": "How are you?", "ipa": "/haʊ ɑːr ˈjuː/", "pos": "question", "meaning": "¿cómo estás?", "example": "Hi, Laura! How are you?", "exampleMeaning": "¡Hola, Laura! ¿Cómo estás?" },
+    { "term": "fine", "ipa": "/faɪn/", "pos": "adjective", "meaning": "bien", "example": "I'm fine, thanks. And you?", "exampleMeaning": "Bien, gracias. ¿Y tú?" },
+    { "term": "thank you", "ipa": "/ˈθæŋk juː/", "pos": "expression", "meaning": "gracias", "example": "Thank you very much, Emma.", "exampleMeaning": "Muchas gracias, Emma." },
+    { "term": "nice to meet you", "ipa": "/ˈnaɪs tə ˈmiːt juː/", "pos": "expression", "meaning": "mucho gusto, encantado", "example": "Nice to meet you, Mr. Clark.", "exampleMeaning": "Mucho gusto, señor Clark." },
+    { "term": "name", "ipa": "/neɪm/", "pos": "noun", "meaning": "nombre", "example": "My name is Daniel.", "exampleMeaning": "Me llamo Daniel." },
+    { "term": "first name", "ipa": "/ˈfɝːst ˌneɪm/", "pos": "noun", "meaning": "nombre de pila", "example": "My first name is Laura.", "exampleMeaning": "Mi nombre es Laura." },
+    { "term": "last name", "ipa": "/ˈlæst ˌneɪm/", "pos": "noun", "meaning": "apellido (lo más común en Estados Unidos)", "example": "My last name is Gómez.", "exampleMeaning": "Mi apellido es Gómez." },
+    { "term": "surname", "ipa": "/ˈsɝː.neɪm/", "pos": "noun", "meaning": "apellido (más común en el Reino Unido y en formularios)", "example": "Write your surname here, please.", "exampleMeaning": "Escriba su apellido aquí, por favor." },
+    { "term": "spell", "ipa": "/spel/", "pos": "verb", "meaning": "deletrear", "example": "How do you spell your name?", "exampleMeaning": "¿Cómo se deletrea tu nombre?" },
+    { "term": "letter", "ipa": "/ˈlet̬.ɚ/", "pos": "noun", "meaning": "letra", "example": "My name has six letters.", "exampleMeaning": "Mi nombre tiene seis letras." },
+    { "term": "student", "ipa": "/ˈstuː.dənt/", "pos": "noun", "meaning": "estudiante", "example": "I'm a new student.", "exampleMeaning": "Soy un estudiante nuevo." },
+    { "term": "teacher", "ipa": "/ˈtiː.tʃɚ/", "pos": "noun", "meaning": "profesor, profesora", "example": "Mr. Clark is my teacher.", "exampleMeaning": "El señor Clark es mi profesor." }
+  ],
+  "cognates": {
+    "pattern": "-tion = -ción",
+    "explanation": "Tu superpoder como hispanohablante: muchísimas palabras que en español terminan en -ción terminan en inglés en -tion y significan lo mismo. Ya conoces cientos de palabras en inglés sin haberlas estudiado. Solo cambia la pronunciación: -tion suena /ʃən/ («shon») y el acento cae justo antes: in-for-MA-tion, con-ver-SA-tion.",
+    "examples": [
+      { "en": "information", "es": "información" },
+      { "en": "conversation", "es": "conversación" },
+      { "en": "education", "es": "educación" },
+      { "en": "situation", "es": "situación" },
+      { "en": "celebration", "es": "celebración" },
+      { "en": "nation", "es": "nación" }
+    ],
+    "falseFriends": [
+      { "en": "embarrassed", "looksLike": "embarazada", "means": "avergonzado o avergonzada. Embarazada se dice pregnant. «I'm embarrassed» no anuncia un bebé." }
+    ]
+  },
+  "grammar": {
+    "points": ["a1.be", "a1.subject-pronouns"],
+    "explanation": "### El verbo *to be*: ser y estar en uno solo\n\nEn español tienes dos verbos, **ser** y **estar**. En inglés los dos son uno solo: **to be**. *I'm Daniel* (soy Daniel) y *I'm nervous* (estoy nervioso) usan el mismo verbo.\n\n| Sujeto | Forma completa | Contracción | Negativa |\n|---|---|---|---|\n| I | I am | I'm | I'm not |\n| you | you are | you're | you aren't / you're not |\n| he / she / it | he is | he's | he isn't / he's not |\n| we / they | we are | we're | we aren't / we're not |\n\n**Preguntas:** el verbo pasa delante del sujeto. *You are Daniel* → ***Are you Daniel?***\n\n**Respuestas cortas:** *Yes, I am.* / *No, I'm not.* En las respuestas cortas afirmativas **nunca** se contrae: se dice *Yes, I am*, jamás *Yes, I'm*.\n\n### El sujeto nunca desaparece\n\nEn español dices «soy de Medellín» sin decir «yo». En inglés el sujeto es **obligatorio**: *I'm from Medellín*, nunca *Am from Medellín*. Para cosas y lugares se usa **it**: *It's a big school* (es una escuela grande). **You** sirve para tú, usted y ustedes: el inglés no distingue.\n\n### La edad también va con *be*\n\nEn español la edad se *tiene*; en inglés se *es*: *I'm 27* (literalmente «soy 27»). Si dices *I have 27 years*, te van a mirar como Emma mira a Daniel en la escucha.\n\n### Contracciones\n\nAl hablar y en los mensajes informales se usan casi siempre las contracciones (*I'm, you're, she's*). Las formas completas suenan formales o sirven para insistir: *I AM ready!* (¡que sí estoy listo!).",
+    "examples": [
+      { "en": "I'm Daniel.", "es": "Soy Daniel." },
+      { "en": "You're my teacher.", "es": "Tú eres mi profesor." },
+      { "en": "She's from Colombia.", "es": "Ella es de Colombia." },
+      { "en": "It's a big school.", "es": "Es una escuela grande." },
+      { "en": "We aren't in room five.", "es": "No estamos en el salón cinco." },
+      { "en": "Are you a student? Yes, I am.", "es": "¿Eres estudiante? Sí." },
+      { "en": "I'm twenty-seven.", "es": "Tengo veintisiete años." }
+    ],
+    "pitfalls": [
+      { "wrong": "Am Daniel.", "right": "I'm Daniel.", "why": "En inglés el sujeto es obligatorio: no se puede omitir I como hacemos con «yo» en español." },
+      { "wrong": "Yes, I'm.", "right": "Yes, I am.", "why": "En las respuestas cortas afirmativas no se usa contracción." },
+      { "wrong": "Is very nice the school.", "right": "The school is very nice.", "why": "El sujeto va antes del verbo; si no hay otro sujeto, se usa it: It's very nice." },
+      { "wrong": "I have 27 years.", "right": "I'm 27.", "why": "La edad se dice con be, no con have. Daniel lo aprendió por las malas." }
+    ]
+  },
+  "listening": {
+    "title": "First day at Bright Start",
+    "episode": { "series": "Bright Start", "number": 1 },
+    "context": "Episodio 1. Daniel acaba de llegar a Chicago y es su primer día en una escuela de inglés. Emma trabaja en la recepción. Escucha dos veces: la primera sin leer, la segunda leyendo.",
+    "speakers": {
+      "A": { "name": "Emma", "voice": "us-f2" },
+      "B": { "name": "Daniel", "voice": "us-m1" }
+    },
+    "lines": [
+      { "speaker": "A", "text": "Good morning! Welcome to Bright Start English School.", "say": "[cheerfully] Good morning! Welcome to Bright Start English School." },
+      { "speaker": "B", "text": "Good morning. I'm a new student.", "say": "[nervously] Good morning. I'm a new student." },
+      { "speaker": "A", "text": "Great! I'm Emma, the receptionist. What's your name?" },
+      { "speaker": "B", "text": "My name is Daniel Ortega." },
+      { "speaker": "A", "text": "Nice to meet you, Daniel. How do you spell Ortega?" },
+      { "speaker": "B", "text": "O, R, T, E, G, A." },
+      { "speaker": "A", "text": "Thank you. Are you from Spain?" },
+      { "speaker": "B", "text": "No, I'm not. I'm from Colombia. I'm from Medellín." },
+      { "speaker": "A", "text": "Oh, nice! And how old are you?" },
+      { "speaker": "B", "text": "I have twenty-seven years.", "say": "[proudly] I have twenty-seven years." },
+      { "speaker": "A", "text": "You have... twenty-seven years? Oh! You mean you're twenty-seven.", "say": "[confused] You have... twenty-seven years? [laughs] Oh! You mean you're twenty-seven." },
+      { "speaker": "B", "text": "Yes! I'm twenty-seven. Sorry, I'm a little nervous.", "say": "[embarrassed] Yes! I'm twenty-seven. Sorry, I'm a little nervous." },
+      { "speaker": "A", "text": "Don't worry. Your teacher is Mr. Clark. He's very friendly. Your class is in room six.", "say": "[warmly] Don't worry. Your teacher is Mr. Clark. He's very friendly. Your class is in room six." },
+      { "speaker": "B", "text": "Room six. Thank you, Emma." },
+      { "speaker": "A", "text": "You're welcome. Have a good class!" },
+      { "speaker": "B", "text": "Thanks. Goodbye!" }
+    ],
+    "questions": [
+      { "type": "choice", "instruction": "Escucha y elige la respuesta correcta.", "q": "¿Qué trabajo tiene Emma?", "options": ["Es profesora.", "Es recepcionista.", "Es estudiante."], "answer": 1, "explain": "Emma dice: «I'm Emma, the receptionist».", "target": "a1.be" },
+      { "type": "gap", "instruction": "Escucha y escribe el apellido de Daniel.", "q": "Daniel's last name is ___.", "answers": ["Ortega"], "explain": "Daniel lo deletrea: O, R, T, E, G, A.", "target": "a1.f.spell" },
+      { "type": "choice", "instruction": "Escucha y elige la respuesta correcta.", "q": "¿De dónde es Daniel?", "options": ["De España.", "De Colombia.", "De México."], "answer": 1, "explain": "Emma pregunta si es de España y él responde: «No, I'm not. I'm from Colombia».", "target": "a1.be" },
+      { "type": "choice", "instruction": "Escucha y elige qué error comete Daniel.", "q": "¿Por qué se ríe Emma?", "options": ["Daniel dice su edad con have en lugar de be.", "Daniel deletrea mal su apellido.", "Daniel dice que es de España."], "answer": 0, "explain": "Daniel dice «I have twenty-seven years», traducido del español. En inglés la edad va con be: I'm twenty-seven.", "target": "a1.be" },
+      { "type": "gap", "instruction": "Escucha y completa con un número o una palabra.", "q": "Daniel's class is in room ___.", "answers": ["six", "6"], "explain": "Emma dice: «Your class is in room six».", "target": "a1.be" },
+      { "type": "choice", "instruction": "Escucha y elige la respuesta correcta.", "q": "¿Cómo se siente Daniel?", "options": ["Cansado.", "Nervioso.", "Enojado."], "answer": 1, "explain": "Daniel dice «I'm a little nervous»: nervous significa nervioso.", "target": "a1.be" },
+      { "type": "gap", "instruction": "Escucha y escribe el apellido del profesor.", "q": "The teacher is Mr. ___.", "answers": ["Clark"], "explain": "Emma dice: «Your teacher is Mr. Clark. He's very friendly».", "target": "a1.be" }
+    ],
+    "dictation": [
+      "My name is Daniel Ortega.",
+      "Nice to meet you.",
+      "Your class is in room six."
+    ]
+  },
+  "pronunciation": {
+    "point": "a1.p.alphabet",
+    "explanation": "Las letras en inglés se agrupan por su sonido. Si aprendes los grupos, dejas de confundir la E con la I o la G con la J, que son los errores más comunes de los hispanohablantes al deletrear.\n\n- **/eɪ/** como en *day*: A, H, J, K\n- **/iː/** como en *see*: B, C, D, E, G, P, T, V, Z\n- **/e/** como en *yes*: F, L, M, N, S, X\n- **/aɪ/** como en *my*: I, Y\n- **/oʊ/** como en *no*: O\n- **/uː/** como en *you*: Q, U, W\n- **/ɑːr/** como en *car*: R\n\nOjo: la **E** suena «i» y la **I** suena «ai». La **G** suena «yi» y la **J** suena «yei». En Estados Unidos la Z es «zi»; en el Reino Unido, «zed». Cuando una letra se repite se dice *double*: Emma se deletrea *E, double M, A*.\n\nPrimero entrena el oído: en los ejercicios de identificar, cada letra la dicen voces distintas. Cuando tu oído distingue la E de la I sin pensar, tu boca empieza a distinguirlas también.",
+    "items": [
+      { "text": "A, H, J, K", "say": "A. H. J. K.", "ipa": "/eɪ/", "tip": "Todas tienen el diptongo de «rey»." },
+      { "text": "B, C, D, E, G, P, T, V, Z", "ipa": "/iː/", "tip": "Todas terminan en una «i» larga." },
+      { "text": "F, L, M, N, S, X", "ipa": "/e/", "tip": "Empiezan con una «e» corta: ef, el, em." },
+      { "text": "I, Y", "ipa": "/aɪ/", "tip": "La I suena «ai», como en «hay»." },
+      { "text": "O", "ipa": "/oʊ/", "tip": "Una «ou» redondeada, nunca una o seca." },
+      { "text": "Q, U, W", "ipa": "/uː/", "tip": "Terminan en «iu»; la W se dice «dábel iu»." },
+      { "text": "R", "ipa": "/ɑːr/", "tip": "Suena igual que la palabra are." },
+      { "text": "E and I", "tip": "La pareja que más se confunde: «i» frente a «ai»." },
+      { "text": "G and J", "tip": "«yi» frente a «yei»." }
+    ],
+    "discrimination": [
+      { "type": "hear", "instruction": "Escucha y elige la letra que oyes.", "audioText": "The letter E.", "options": ["E", "I"], "answer": 0, "voices": ["us-f1", "us-m1"], "explain": "La E suena /iː/ («i»). La I sonaría /aɪ/ («ai»).", "target": "a1.p.alphabet" },
+      { "type": "hear", "instruction": "Escucha y elige la letra que oyes.", "audioText": "The letter I.", "options": ["E", "I"], "answer": 1, "voices": ["us-f2", "us-m3"], "explain": "La I suena /aɪ/ («ai»), como en my.", "target": "a1.p.alphabet" },
+      { "type": "hear", "instruction": "Escucha y elige la letra que oyes.", "audioText": "The letter G.", "options": ["G", "J"], "answer": 0, "voices": ["us-m1", "us-f2"], "explain": "La G suena /dʒiː/ («yi»). La J sonaría /dʒeɪ/ («yei»).", "target": "a1.p.alphabet" },
+      { "type": "hear", "instruction": "Escucha y elige la letra que oyes.", "audioText": "The letter J.", "options": ["G", "J"], "answer": 1, "voices": ["us-f1", "us-m3"], "explain": "La J suena /dʒeɪ/ («yei»), con el sonido de day.", "target": "a1.p.alphabet" },
+      { "type": "hear", "instruction": "Escucha y elige la letra que oyes.", "audioText": "The letter A.", "options": ["A", "E", "I"], "answer": 0, "voices": ["us-m2", "us-f1"], "explain": "La A suena /eɪ/ («ei»), como en day. Es la que más sorprende a los hispanohablantes.", "target": "a1.p.alphabet" },
+      { "type": "hear", "instruction": "Escucha el deletreo y elige el nombre.", "audioText": "K, A, T, E.", "audioSay": "K. A. T. E.", "options": ["Kate", "Kite", "Cate"], "answer": 0, "voices": ["us-f2", "us-m1"], "explain": "K (kei), A (ei), T (ti), E (i): Kate. Kite sería K, I, T, E.", "target": "a1.p.alphabet" }
+    ],
+    "shadowing": [
+      "Hello, I'm Daniel. That's D, A, N, I, E, L.",
+      "Nice to meet you. My last name is Ortega: O, R, T, E, G, A."
+    ]
+  },
+  "practice": [
+    { "type": "gap", "instruction": "Completa con am, is o are.", "q": "I ___ Daniel.", "answers": ["am"], "hint": "¿Qué forma de be va siempre con I?", "explain": "Con I siempre va am: I am, o en contracción I'm.", "target": "a1.be" },
+    { "type": "gap", "instruction": "Completa con am, is o are.", "q": "Emma ___ the receptionist.", "answers": ["is"], "hint": "Emma es «she». ¿Qué forma usa she?", "explain": "Emma equivale a she, y con she va is.", "target": "a1.be" },
+    { "type": "gap", "instruction": "Completa con am, is o are.", "q": "You ___ a new student.", "answers": ["are"], "hint": "You usa la misma forma para una persona o para varias.", "explain": "Con you siempre va are, sea una persona o varias.", "target": "a1.be" },
+    { "type": "gap", "instruction": "Completa con am, is o are.", "q": "We ___ from Colombia.", "answers": ["are"], "hint": "We y they comparten la forma de you.", "explain": "Con we y con they va are.", "target": "a1.be" },
+    { "type": "choice", "instruction": "Elige el pronombre correcto.", "q": "Emma is the receptionist. ___ is very nice.", "options": ["He", "She", "It"], "answer": 1, "explain": "Emma es una mujer: she.", "target": "a1.subject-pronouns" },
+    { "type": "gap", "instruction": "Escribe el pronombre sujeto correcto (I, you, he, she, it, we, they).", "q": "Daniel and I are students. ___ are in room six.", "answers": ["We"], "hint": "Daniel y yo: ¿nosotros o ellos?", "explain": "Daniel y yo = nosotros = we.", "target": "a1.subject-pronouns" },
+    { "type": "gap", "instruction": "Escribe el pronombre sujeto correcto (I, you, he, she, it, we, they).", "q": "Mr. Clark is my teacher. ___ is very friendly.", "answers": ["He"], "hint": "Mr. Clark es un hombre.", "explain": "Mr. Clark es un hombre: he.", "target": "a1.subject-pronouns" },
+    { "type": "gap", "instruction": "Escribe el pronombre sujeto correcto (I, you, he, she, it, we, they).", "q": "The school is new. ___ is very big.", "answers": ["It"], "hint": "Para cosas y lugares hay un pronombre especial.", "explain": "Para cosas y lugares se usa it. En español no decimos nada, pero en inglés el sujeto es obligatorio.", "target": "a1.subject-pronouns" },
+    { "type": "transform", "instruction": "Escribe la frase en forma negativa.", "q": "I am from Spain.", "answers": ["I'm not from Spain."], "hint": "Agrega not después del verbo.", "explain": "La negativa se forma con not después del verbo: I'm not (o I am not).", "target": "a1.be" },
+    { "type": "transform", "instruction": "Escribe la frase en forma negativa.", "q": "She is a student.", "answers": ["She isn't a student.", "She's not a student."], "hint": "Pon not después de is; puedes contraer.", "explain": "Hay dos contracciones posibles: she isn't o she's not. Las dos son correctas.", "target": "a1.be" },
+    { "type": "transform", "instruction": "Convierte la frase en una pregunta.", "q": "You are Daniel.", "answers": ["Are you Daniel?"], "hint": "En las preguntas el verbo va antes del sujeto.", "explain": "En las preguntas el verbo be pasa delante del sujeto: Are you…?", "target": "a1.be" },
+    { "type": "order", "instruction": "Ordena las palabras para formar una pregunta.", "words": ["name", "your", "is", "What"], "answers": ["What is your name?"], "hint": "Empieza con la palabra interrogativa.", "explain": "La palabra interrogativa va primero y después el verbo: What is your name?", "target": "a1.f.greet" },
+    { "type": "correct", "instruction": "Corrige el error de la respuesta corta.", "q": "Yes, I'm.", "answers": ["Yes, I am."], "strict": true, "hint": "En las respuestas cortas afirmativas, ¿se puede contraer?", "explain": "En las respuestas cortas afirmativas no se contrae: Yes, I am. La negativa sí: No, I'm not.", "target": "a1.be" },
+    { "type": "correct", "instruction": "Corrige el error de Daniel.", "q": "I have twenty-seven years.", "answers": ["I'm twenty-seven.", "I am twenty-seven.", "I'm 27.", "I am 27.", "I'm twenty-seven years old.", "I am twenty-seven years old.", "I'm 27 years old.", "I am 27 years old."], "hint": "En inglés la edad no se tiene: se es.", "explain": "La edad va con be: I'm twenty-seven, o I'm twenty-seven years old.", "target": "a1.be" },
+    { "type": "translate", "instruction": "Traduce al inglés.", "q": "Ella es mi profesora.", "answers": ["She's my teacher.", "She is my teacher."], "hint": "No olvides el sujeto: ella es she.", "explain": "En inglés hay que decir el sujeto: She is (She's) my teacher.", "target": "a1.subject-pronouns" },
+    { "type": "translate", "instruction": "Traduce al inglés.", "q": "Tú no eres Emma.", "answers": ["You aren't Emma.", "You're not Emma.", "You are not Emma."], "hint": "You + are + not.", "explain": "You + are + not. Las dos contracciones (aren't y 're not) son correctas.", "target": "a1.be" },
+    { "type": "choice", "instruction": "Elige la respuesta más adecuada.", "q": "Alguien te dice: «Nice to meet you». ¿Qué respondes?", "options": ["Nice to meet you, too.", "I'm fine, thanks.", "Goodbye."], "answer": 0, "explain": "A Nice to meet you se responde Nice to meet you, too. I'm fine responde a How are you?", "target": "a1.f.greet" },
+    { "type": "choice", "instruction": "Elige la respuesta más adecuada.", "q": "Alguien te pregunta: «How are you?». ¿Qué respondes?", "options": ["I'm Daniel.", "I'm fine, thanks. And you?", "Nice to meet you."], "answer": 1, "explain": "How are you? pregunta cómo estás: I'm fine, thanks. And you?", "target": "a1.f.greet" },
+    { "type": "dictation", "instruction": "Escucha el deletreo y escribe el apellido.", "audioText": "W, H, I, T, E.", "audioSay": "W. H. I. T. E.", "answers": ["W, H, I, T, E", "White"], "hint": "Escucha otra vez: empieza con la letra que se dice «dábel iu».", "explain": "W (dábel iu), H (eich), I (ai), T (ti), E (i): White. Fíjate en la I y la E, que se confunden mucho.", "target": "a1.p.alphabet" }
+  ],
+  "speaking": {
+    "task": "Imagina que llegas a tu primera clase de inglés. Graba una presentación: saluda, di tu nombre completo, deletrea tu apellido, di de dónde eres, cuántos años tienes y despídete. Después repítela más rápido: la segunda vez tienes menos tiempo.",
+    "prompts": [
+      "Saluda según la hora del día.",
+      "Di tu nombre y tu apellido, y deletrea el apellido.",
+      "Di de qué país y de qué ciudad eres.",
+      "Di tu edad (¡con be, no con have!).",
+      "Despídete."
+    ],
+    "seconds": 45,
+    "rounds": [45, 35],
+    "targetLanguage": [
+      "Good morning / Good afternoon",
+      "My name is … / I'm …",
+      "My last name is … (deletreado)",
+      "I'm from …",
+      "I'm … (edad)",
+      "Nice to meet you. / Goodbye!"
+    ],
+    "model": "Good morning! My name is Laura Gómez. My first name is Laura and my last name is Gómez: G, O, M, E, Z. I'm from Colombia. I'm from Cali. I'm thirty-two. I'm a new student here. Nice to meet you! See you later. Goodbye!",
+    "rubric": ["task", "range", "accuracy", "fluency", "pronunciation"]
+  },
+  "roleplay": {
+    "character": "Emma",
+    "voice": "us-f2",
+    "scenario": "Llegas a la recepción de Bright Start English School, en Chicago. Emma te recibe y necesita tus datos para inscribirte. Ella habla despacio y te ayuda si te enredas.",
+    "goals": [
+      "Saludar según la hora del día.",
+      "Decir tu nombre y deletrear tu apellido.",
+      "Decir de dónde eres y tu edad (con be).",
+      "Despedirte con cortesía."
+    ],
+    "opening": {
+      "text": "Good morning! Welcome to Bright Start. Are you a new student?",
+      "say": "[cheerfully] Good morning! Welcome to Bright Start. Are you a new student?"
+    },
+    "maxTurns": 8
+  },
+  "writing": {
+    "genre": null,
+    "task": "Tu nueva clase de inglés tiene un grupo de WhatsApp. Escribe tu primer mensaje para el grupo: saluda, preséntate con nombre y apellido, di de dónde eres y despídete.",
+    "minWords": 25,
+    "maxWords": 50,
+    "checklist": [
+      "Te presentas con I'm o con My name is.",
+      "Escribes siempre I con mayúscula.",
+      "Cada frase tiene sujeto y verbo (I'm from…, nunca «Am from…»).",
+      "Terminas con una despedida."
+    ],
+    "model": "Hi everyone! I'm Laura Gómez. My first name is Laura and my last name is Gómez. I'm from Colombia. I'm a new student in this class. Nice to meet you all. See you on Monday! Bye!",
+    "rubric": ["content", "communicative", "organisation", "language"]
+  },
+  "mission": {
+    "kind": "watch",
+    "minutes": 10,
+    "subtitles": "en",
+    "task": "Busca en YouTube una escena de una serie o película en inglés en la que dos personas se conozcan (por ejemplo, el primer episodio de Friends o de Modern Family). Activa los subtítulos en inglés, nunca en español, y anota todas las formas de saludar y presentarse que oigas. Bonus: ¿alguien deletrea su nombre?"
+  },
+  "mastery": [
+    { "type": "gap", "instruction": "Completa con am, is o are.", "q": "They ___ my friends.", "answers": ["are"], "explain": "Con they va are.", "target": "a1.be" },
+    { "type": "gap", "instruction": "Escribe el pronombre sujeto que falta.", "q": "___ am a new student.", "answers": ["I"], "explain": "Am solo va con I. Y en inglés I se escribe siempre con mayúscula.", "target": "a1.subject-pronouns" },
+    { "type": "transform", "instruction": "Escribe la frase en forma negativa.", "q": "He is from Canada.", "answers": ["He isn't from Canada.", "He's not from Canada."], "explain": "He + is + not: he isn't o he's not.", "target": "a1.be" },
+    { "type": "transform", "instruction": "Convierte la frase en una pregunta.", "q": "She is your teacher.", "answers": ["Is she your teacher?"], "explain": "El verbo be pasa delante del sujeto: Is she…?", "target": "a1.be" },
+    { "type": "choice", "instruction": "Elige la respuesta corta correcta.", "q": "Are you Emma? (Sí.)", "options": ["Yes, I'm.", "Yes, I am.", "Yes, I are."], "answer": 1, "explain": "En la respuesta corta afirmativa no se contrae: Yes, I am.", "target": "a1.be" },
+    { "type": "choice", "instruction": "Elige el pronombre correcto.", "q": "Emma and Mr. Clark? ___ are at the school.", "options": ["We", "They", "You"], "answer": 1, "explain": "Emma y el señor Clark son ellos: they.", "target": "a1.subject-pronouns" },
+    { "type": "dictation", "instruction": "Escucha y escribe la frase completa.", "audioText": "Nice to meet you, Daniel.", "answers": ["Nice to meet you, Daniel."], "explain": "Nice to meet you es la fórmula para cuando conoces a alguien.", "target": "a1.f.greet" },
+    { "type": "dictation", "instruction": "Escucha el deletreo y escribe el nombre.", "audioText": "J, A, M, E, S.", "answers": ["J, A, M, E, S", "James"], "explain": "J (yei), A (ei), M (em), E (i), S (es): James.", "target": "a1.p.alphabet" },
+    { "type": "translate", "instruction": "Traduce al inglés.", "q": "¿Eres de México?", "answers": ["Are you from Mexico?"], "explain": "Pregunta con be: Are you from…?", "target": "a1.be" },
+    { "type": "correct", "instruction": "Corrige el error.", "q": "Am Laura.", "answers": ["I'm Laura.", "I am Laura."], "explain": "Falta el sujeto: en inglés no se puede omitir I.", "target": "a1.subject-pronouns" },
+    { "type": "order", "instruction": "Ordena las palabras para formar una pregunta.", "words": ["you", "are", "How"], "answers": ["How are you?"], "explain": "How va primero y después el verbo y el sujeto: How are you?", "target": "a1.f.greet" },
+    { "type": "choice", "instruction": "Elige la mejor opción.", "q": "Llegas a una cena a las ocho de la noche. ¿Cómo saludas?", "options": ["Good night!", "Good evening!", "Goodbye!"], "answer": 1, "explain": "Good evening saluda al llegar por la noche. Good night solo se dice al irse o antes de dormir.", "target": "a1.f.greet" }
+  ]
+}

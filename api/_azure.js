@@ -54,3 +54,33 @@ export function urlFirmadaDeLectura({ cuenta, clave, contenedor, blob, minutos =
     expira: fin.toISOString(),
   };
 }
+
+/* Los audios del curso de inglés son cientos de archivos chicos: firmar uno por uno sería
+   una llamada por audio. Se firma el contenedor entero, también solo para leer y con vida
+   corta, y el navegador arma cada dirección agregando la firma. */
+export const CONTENEDOR_AUDIO_INGLES = "ingles-audio";
+
+export function firmaDeContenedor({ cuenta, clave, contenedor, minutos = 120, ahora = new Date() }) {
+  const inicio = new Date(ahora.getTime() - 5 * 60 * 1000);
+  const fin = new Date(ahora.getTime() + minutos * 60 * 1000);
+  const iso = (fecha) => fecha.toISOString().slice(0, 19) + "Z";
+  const permisos = "r";
+  const recurso = "c";                  // el contenedor, no un archivo
+  const protocolo = "https";
+  const canonico = `/blob/${cuenta}/${contenedor}`;
+  const aFirmar = [
+    permisos, iso(inicio), iso(fin), canonico,
+    "", "", protocolo, VERSION_SAS, recurso,
+    "", "", "", "", "", "", "",
+  ].join("\n");
+  const firma = crypto.createHmac("sha256", Buffer.from(clave, "base64")).update(aFirmar, "utf8").digest("base64");
+  const parametros = new URLSearchParams({
+    sv: VERSION_SAS, sp: permisos, sr: recurso, spr: protocolo,
+    st: iso(inicio), se: iso(fin), sig: firma,
+  });
+  return {
+    base: `https://${cuenta}.blob.core.windows.net/${contenedor}`,
+    sas: parametros.toString(),
+    expira: fin.toISOString(),
+  };
+}

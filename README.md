@@ -223,6 +223,33 @@ Luego el admin sube esos `.pages.json` con el importador. El texto alimenta bús
 
 ---
 
+## 🇬🇧 Curso de inglés A1 → C1 (en construcción)
+
+Una fuente más en el selector, **"Inglés — de cero a C1"**, que no viene de un libro. Hoy la ve solo el administrador (`adminOnly` en `BOOKS`, dentro de `app.js`).
+
+- **Ruta verificada** (`english-catalog.js`): 5 niveles, 30 unidades y 168 lecciones. La auditoría exige cubrir los 417 puntos del inventario MCER (gramática, funciones, pronunciación y tipos de texto) y que cada unidad trabaje las cuatro habilidades.
+- **Método** (`english/METODO.md`): la evidencia sobre cómo aprende inglés un hispanohablante y la historia *Bright Start*, con Matilda como coach.
+- **Lecciones escritas a mano**, en `english/lessons/<id>.json` y listadas en `index.json`. Las verifica `english-utils.js`, que exige:
+  - intento previo y cognados;
+  - pistas antes de dar la respuesta, repaso intercalado y entrenamiento del oído con 3 o más voces;
+  - la técnica 4/3/2 y un juego de roles;
+  - una misión con subtítulos en inglés;
+  - claves de respuesta comprobables.
+- **Pantalla** (`english-app.js` + `english.css`): se descarga solo al elegir el inglés. Trae el reproductor por secciones, el repaso espaciado (`english-srs.js`) y los candados con 80 % para dominar una lección (`english-progress.js`).
+- **Servidor** (`api/english.js`):
+  - corrige lo que se escribe y lo que se dice, y conduce el juego de roles;
+  - usa DeepSeek por defecto y Claude Haiku 5.5 si se activa la "IA avanzada";
+  - entrega el permiso de pronunciación de Azure y la firma temporal de los audios.
+- **Audios**: ElevenLabs. eleven_v3 con emoción para la historia y Matilda; multilingual_v2 para lo demás. Se generan con `node tools/english-audio.mjs [--dry-run] <lecciones>` en `output/ingles-audio/` y se publican en el contenedor `ingles-audio` de Azure.
+- **Vista previa local sin cuenta**: `python -m http.server 8765` y abrir `/tools/english-preview.html?admin`.
+
+Variables nuevas en Vercel, todas opcionales; sin ellas, el curso funciona con lo que haya:
+
+| Variable | Para qué |
+|---|---|
+| `AZURE_SPEECH_KEY` y `AZURE_SPEECH_REGION` | Calificar la pronunciación (recurso `speech-gemb`, `eastus`) |
+| `ANTHROPIC_API_KEY` | La "IA avanzada" con Haiku 5.5 |
+
 ## 🗺️ Roadmap (ideas a futuro)
 
 - Repetición espaciada entre sesiones y repaso automático de preguntas falladas.

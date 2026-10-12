@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vista previa del curso de inglés</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/english.css">
+  <style>
+    body { background: var(--paper); color: var(--ink); }
+    .preview-banner { padding: 10px 16px; background: #fff5dc; color: #6b4a12; font: 600 .8rem/1.4 "Manrope", sans-serif; }
+  </style>
+</head>
+<body>
+  <!-- Solo para desarrollo local (tools/ no se publica: .vercelignore). Carga el curso real
+       sin Firebase: el avance se guarda en este navegador, los audios salen de
+       output/ingles-audio y la IA responde con textos de ejemplo. -->
+  <div class="preview-banner">Vista previa local · sin cuenta, sin servidor · la IA responde con ejemplos</div>
+  <main class="studywrap" style="display:block">
+    <section class="panel active" id="panel-curso"><div id="courseHome"></div></section>
+  </main>
+  <div id="toast" style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);padding:10px 16px;border-radius:12px;background:#122027;color:#fff;font:600 .85rem Manrope,sans-serif;display:none"></div>
+  <script type="module">
+    import { openEnglish } from "/english-app.js";
+
+    const KEY = "avici-en-preview";
+    const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch { return {}; } };
+    const write = (patch) => localStorage.setItem(KEY, JSON.stringify({ ...read(), ...patch }));
+    const toast = (message) => { const el = document.getElementById("toast"); el.textContent = message; el.style.display = "block"; clearTimeout(el._t); el._t = setTimeout(() => { el.style.display = "none"; }, 2200); };
+    const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    let turns = 0;
+    async function api(path, { method = "GET", body } = {}) {
+      await wait(350);
+      if (path.includes("task=config")) return { audio: null, speech: false, advancedAI: true };
+      if (path.includes("task=speech-token")) throw new Error("Sin Azure en la vista previa.");
+      if (body?.task === "write") return { advanced: body.advanced, result: {
+        scores: { content: 4, communicative: 4, organisation: 3, language: 3 },
+        overall: "Buen mensaje: te presentas con claridad y cierras con una despedida.",
+        strengths: ["Usas I'm correctamente.", "Escribes I siempre con mayúscula."],
+        corrections: [{ original: "Am from Colombia", corrected: "I'm from Colombia", why: "En inglés el sujeto es obligatorio." }],
+        checklist: (body.checklist || []).map((item, index) => ({ item, met: index !== 2 })),
+        nextStep: "Reescribe la frase sin sujeto y vuelve a pedir la corrección.",
+      } };
+      if (body?.task === "speak") return { advanced: body.advanced, result: {
+        scores: { task: 4, range: 3, accuracy: 3, fluency: 4 },
+        overall: "Cumpliste la tarea y la tercera ronda fue más fluida que la primera.",
+        strengths: ["Deletreaste tu apellido sin dudar."],
+        corrections: [{ original: "I have 32 years", corrected: "I'm 32", why: "La edad va con be." }],
+        targetUsed: ["My name is …", "I'm from …"],
+        nextStep: "Practica la edad con be en voz alta tres veces.",
+      } };
+      if (body?.task === "roleplay") {
+        turns++;
+        const goals = (body.goals || []).length;
+        return { advanced: body.advanced, result: {
+          reply: turns === 1 ? "Nice to meet you! How do you spell your last name?" : turns === 2 ? "Thank you! And where are you from?" : "Great! Welcome to Bright Start. Have a good class!",
+          goalsMet: Array.from({ length: Math.min(goals, turns + 1) }, (_, index) => index),
+          correction: turns === 2 ? { said: "Am from Cali", better: "I'm from Cali", why: "Falta el sujeto: en inglés no se puede omitir I." } : null,
+          finished: turns >= 3,
+        } };
+      }
+      throw new Error("Tarea desconocida en la vista previa.");
+    }
+
+    window.__enDebug = {};
+    openEnglish({
+      debug: window.__enDebug,
+      root: document.getElementById("courseHome"),
+      isAdmin: new URLSearchParams(location.search).has("admin"),
+      toast,
+      api,
+      audioBase: "/output/ingles-audio",
+      store: {
+        async loadProgress() { return read().progress || {}; },
+        async saveProgress(progress) { write({ progress }); },
+        async loadCards() { return read().cards || []; },
+        async saveCards(cards) { write({ cards }); },
+      },
+    });
+  </script>
+</body>
+</html>

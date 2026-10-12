@@ -31,6 +31,10 @@ const BOOKS = [
     edition: "2013",
     sourceStatus: "historical-clinical",
   },
+  /* El curso de inglés no es un libro: su pantalla vive en english-app.js y se carga solo
+     cuando se elige. `adminOnly` lo deja visible únicamente para el administrador mientras
+     se prueba; para abrirlo a todas las cuentas aprobadas basta con quitar esa línea. */
+  { id: "ingles", title: "Inglés — de cero a C1", kind: "language", lessons: 168, adminOnly: true },
 ];
 const VACCINATION_OFFICIAL_SOURCES = [
   { label: "Calendario Nacional de Vacunación vigente", url: "https://www.argentina.gob.ar/salud/vacunas" },
@@ -104,7 +108,7 @@ function wireCites(el) { el.querySelectorAll(".cite").forEach(b => b.onclick = (
 
 /* ---------------- AUTH ---------------- */
 let unsubUserDoc = null, unsubPending = null, unsubApproved = null, unsubNotes = null, unsubProgress = null, unsubChats = null;
-function cleanup() { [unsubUserDoc, unsubPending, unsubApproved, unsubNotes, unsubProgress, unsubChats].forEach(f => { try { f && f(); } catch {} }); unsubUserDoc = unsubPending = unsubApproved = unsubNotes = unsubProgress = unsubChats = null; stopNoteDictation(true); setReaderFocus(false); void resetReaderPdf(); }
+function cleanup() { [unsubUserDoc, unsubPending, unsubApproved, unsubNotes, unsubProgress, unsubChats].forEach(f => { try { f && f(); } catch {} }); unsubUserDoc = unsubPending = unsubApproved = unsubNotes = unsubProgress = unsubChats = null; stopNoteDictation(true); setReaderFocus(false); void resetReaderPdf(); leaveLanguageCourse(); }
 function whoami(user, role) {
   const img = user.photoURL ? `<img src="${esc(user.photoURL)}" referrerpolicy="no-referrer" alt="">` : `<img src="/icon-192.png" alt="">`;
   return `<div class="whoami">${img}<div class="info"><b>${esc(user.displayName || "Sin nombre")}</b><span>${esc(user.email || "")}</span></div><span class="role">${role}</span></div>`;
@@ -210,6 +214,8 @@ function hace(fecha) {
   return meses <= 1 ? "hace 1 mes" : `hace ${meses} meses`;
 }
 function leccionesDelLibro(bookId) {
+  const fuente = BOOKS.find(b => b.id === bookId);
+  if (fuente?.lessons) return fuente.lessons;
   try {
     const curso = getCuratedCourse(bookId);
     return (curso?.units || []).reduce((n, u) => n + ((u.lessons || []).length), 0);
@@ -592,7 +598,7 @@ function initStudy(user) {
   }
   studyInit = true;
   playWelcome(user);
-  const sel = $("bookSel"); sel.innerHTML = BOOKS.map(b => `<option value="${b.id}" title="${esc(b.title)}">${esc(b.title)}</option>`).join("");
+  const sel = $("bookSel"); sel.innerHTML = BOOKS.filter(b => !b.adminOnly || isAdmin).map(b => `<option value="${b.id}" title="${esc(b.title)}">${esc(b.title)}</option>`).join("");
   sel.title = BOOKS.find(b => b.id === sel.value)?.title || "";   // el nombre completo, aunque se recorte
   sel.addEventListener("change", () => selectBook(sel.value));
   document.querySelectorAll(".tabs button").forEach(btn => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
@@ -630,12 +636,15 @@ let bookRunId = 0;
 async function selectBook(bookId) {
   const runId = ++bookRunId;
   lessonRunId++;                              // invalida cualquier lección en vuelo
+  leaveLanguageCourse();
   await resetReaderPdf();
   if (runId !== bookRunId) return;
   book = null; bookIndex = null; course = null; curLesson = null; openCourseUnits = new Set(); pendingSel = ""; clearSelBanner();
   show("lessonView", false); show("courseHome", true);
   $("courseHome").innerHTML = ""; $("pageContent").textContent = "";
   const selected = BOOKS.find(item => item.id === bookId);
+  $("studyZone").dataset.sourceKind = selected?.kind || "book";
+  if (selected?.kind === "language") { await openLanguageCourse(runId); return; }
   $("readerBookTitle").textContent = selected?.title || "Preparando tu libro…";
   $("readerBookMeta").textContent = "Cargando las páginas originales y tus preferencias de lectura.";
   try {
@@ -651,6 +660,51 @@ async function selectBook(bookId) {
   await loadProgress(bookId);
   if (runId !== bookRunId) return;
   await loadCourse(bookId);
+}
+
+/* ---------- Curso de inglés ----------
+   No es un libro: no tiene PDF, ni buscador, ni el Profe de los libros. Su pantalla entera
+   vive en english-app.js, que se descarga recién cuando alguien elige esta fuente; así un
+   problema en el curso de inglés nunca puede afectar a los cursos de los libros. */
+let englishModule = null;
+
+function leaveLanguageCourse() {
+  if (englishModule) { try { englishModule.closeEnglish(); } catch {} }
+}
+
+async function apiEnglish(path, { method = "GET", body } = {}) {
+  const tk = await idToken();
+  const response = await fetch(path, {
+    method,
+    headers: { Authorization: "Bearer " + tk, ...(body ? { "Content-Type": "application/json" } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(45000),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || ("Error " + response.status));
+  return data;
+}
+
+async function openLanguageCourse(runId) {
+  switchTab("curso");
+  $("readerBookTitle").textContent = "Inglés — de cero a C1";
+  $("readerBookMeta").textContent = "Este curso no usa libro: su fuente es la ruta verificada A1 → C1.";
+  $("courseHome").innerHTML = `<div class="spinner"></div>`;
+  try {
+    const english = await import("./english-app.js");
+    if (runId !== bookRunId) return;
+    englishModule = english;
+    await english.openEnglish({
+      root: $("courseHome"),
+      isAdmin,
+      toast,
+      api: apiEnglish,
+      store: english.createFirestoreStore({ db, uid: curUser.uid, fs: { doc, getDoc, setDoc, collection, getDocs, serverTimestamp } }),
+    });
+  } catch (error) {
+    if (runId !== bookRunId) return;
+    $("courseHome").innerHTML = `<div class="lesson-error"><b>No se pudo abrir el curso de inglés.</b><p>${esc(error?.message || error)}</p></div>`;
+  }
 }
 
 /* Antes, si una fuente no tenía contenido importado, loadBookData volvía en silencio: el

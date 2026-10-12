@@ -1,0 +1,239 @@
+{
+  "id": "en-b2-13",
+  "coach": {
+    "intro": {
+      "text": "Welcome back! Today we're talking about regrets. You know, those moments when you lie awake thinking about the road you didn't take. Daniel's boss, Marcus, is on a podcast today, and his story is amazing. Grab a coffee and listen.",
+      "say": "[warmly] Welcome back! Today we're talking about regrets. [sighs] You know, those moments when you lie awake thinking about the road you didn't take. [excited] Daniel's boss, Marcus, is on a podcast today, and his story is amazing. Grab a coffee and listen."
+    },
+    "outro": {
+      "text": "And that's the third conditional! If you hadn't done this lesson, you wouldn't have learned it. See? I couldn't resist. See you next time!",
+      "say": "[laughs] And that's the third conditional! If you hadn't done this lesson, you wouldn't have learned it. [playfully] See? I couldn't resist. See you next time!"
+    }
+  },
+  "warmup": {
+    "question": "Think of a small, random event that changed your life: a missed bus, a wrong turn, a conversation with a stranger. What happened? What would your life look like today without it?",
+    "tryFirst": [
+      { "type": "gap", "instruction": "Try before you learn: complete the sentence.", "q": "If I ___ (know) you were coming, I would have baked a cake.", "answers": ["had known"], "explain": "If + past perfect: had known. If you wrote 'would have known' or 'knew', don't worry: that's exactly what this lesson fixes.", "target": "b2.third-conditional" },
+      { "type": "choice", "instruction": "Have a guess before the explanation.", "q": "'If she had taken the bus, she would have arrived on time.' Did she take the bus?", "options": ["Yes, she did.", "No, she didn't.", "We don't know."], "answer": 1, "explain": "The third conditional talks about the opposite of reality: she didn't take the bus, so she arrived late.", "target": "b2.third-conditional" }
+    ]
+  },
+  "vocabulary": [
+    { "term": "turning point", "ipa": "/ˈtɝː.nɪŋ ˌpɔɪnt/", "pos": "noun", "meaning": "a moment when an important change happens (punto de inflexión)", "example": "Moving to Bogotá was a turning point in my career." },
+    { "term": "in hindsight", "ipa": "/ɪn ˈhaɪnd.saɪt/", "pos": "phrase", "meaning": "looking back now, with what you know today (en retrospectiva)", "example": "In hindsight, accepting that offer was a mistake." },
+    { "term": "regret", "ipa": "/rɪˈɡret/", "pos": "verb, noun", "meaning": "to feel sorry about something you did or didn't do (arrepentirse; arrepentimiento)", "example": "I don't regret leaving; I regret leaving so late." },
+    { "term": "take a risk", "ipa": "/ˌteɪk ə ˈrɪsk/", "pos": "collocation", "meaning": "to do something that might end badly (arriesgarse)", "example": "She took a huge risk when she quit her job." },
+    { "term": "miss an opportunity", "ipa": "/ˌmɪs ən ˌɑː.pɚˈtuː.nə.t̬i/", "pos": "collocation", "meaning": "to fail to use a good chance (perder una oportunidad)", "example": "He missed a great opportunity because he applied too late." },
+    { "term": "make up your mind", "ipa": "/ˌmeɪk ʌp jʊr ˈmaɪnd/", "pos": "expression", "meaning": "to decide (decidirse)", "example": "I couldn't make up my mind, so I asked my sister." },
+    { "term": "on the spur of the moment", "ipa": "/ɑːn ðə ˈspɝː əv ðə ˈmoʊ.mənt/", "pos": "idiom", "meaning": "suddenly, without planning (de improviso)", "example": "We booked the trip on the spur of the moment." },
+    { "term": "by chance", "ipa": "/baɪ ˈtʃæns/", "pos": "phrase", "meaning": "without planning; by luck (por casualidad)", "example": "We met by chance at a friend's wedding." },
+    { "term": "a narrow escape", "ipa": "/ə ˈner.oʊ ɪˈskeɪp/", "pos": "noun phrase", "meaning": "a situation in which you almost had a very bad experience (salvarse por poco)", "example": "Missing that flight turned out to be a narrow escape." },
+    { "term": "look back on", "ipa": "/ˌlʊk ˈbæk ɑːn/", "pos": "phrasal verb", "meaning": "to think about something in your past (mirar atrás, recordar)", "example": "When I look back on that year, I feel proud." },
+    { "term": "relieved", "ipa": "/rɪˈliːvd/", "pos": "adjective", "meaning": "happy because something bad didn't happen (aliviado)", "example": "I was relieved that I hadn't sent the email." },
+    { "term": "consequence", "ipa": "/ˈkɑːn.sə.kwens/", "pos": "noun", "meaning": "a result of an action, often a bad one (consecuencia)", "example": "Every decision has consequences." },
+    { "term": "go for it", "ipa": "/ˌɡoʊ ˈfɔːr ɪt/", "pos": "idiom", "meaning": "to try hard to get something you want (lanzarse, ir por ello)", "example": "If you really want that job, go for it!" },
+    { "term": "talk someone out of something", "ipa": "/ˌtɑːk ˈsʌm.wʌn ˈaʊt əv ˌsʌm.θɪŋ/", "pos": "phrasal verb", "meaning": "to persuade someone not to do something (convencer a alguien de no hacer algo)", "example": "My dad talked me out of selling my car." },
+    { "term": "have second thoughts", "ipa": "/ˌhæv ˌsek.ənd ˈθɑːts/", "pos": "idiom", "meaning": "to start to doubt a decision (dudar, pensarlo dos veces)", "example": "I had second thoughts about moving abroad." },
+    { "term": "a blessing in disguise", "ipa": "/ə ˈbles.ɪŋ ɪn dɪsˈɡaɪz/", "pos": "idiom", "meaning": "something that seems bad at first but turns out to be good (no hay mal que por bien no venga)", "example": "Losing that job was a blessing in disguise." },
+    { "term": "turn down", "ipa": "/ˌtɝːn ˈdaʊn/", "pos": "phrasal verb", "meaning": "to refuse an offer or invitation (rechazar)", "example": "She turned down an offer from a company in London." },
+    { "term": "turn out", "ipa": "/ˌtɝːn ˈaʊt/", "pos": "phrasal verb", "meaning": "to happen in a particular way, or to be discovered to be something (resultar)", "example": "The trip turned out to be the best week of my life." }
+  ],
+  "cognates": {
+    "pattern": "-ence / -ance = -encia / -ancia",
+    "explanation": "Spanish speakers have a secret weapon: thousands of shared Latin words. Many Spanish nouns ending in -encia or -ancia end in -ence or -ance in English. Watch two things: the spelling (consequence has no accent and keeps the qu) and the stress, which often moves: CON-se-quence, ex-PE-ri-ence, im-POR-tance.",
+    "examples": [
+      { "en": "consequence", "es": "consecuencia" },
+      { "en": "experience", "es": "experiencia" },
+      { "en": "difference", "es": "diferencia" },
+      { "en": "importance", "es": "importancia" },
+      { "en": "distance", "es": "distancia" },
+      { "en": "intelligence", "es": "inteligencia" }
+    ],
+    "falseFriends": [
+      { "en": "actually", "looksLike": "actualmente", "means": "in fact, really (en realidad). Actualmente is currently or nowadays. Chloe says 'Mine's a bit less of a fairy tale, actually': she means 'in fact'." },
+      { "en": "eventually", "looksLike": "eventualmente", "means": "in the end, after a long time (al final, finalmente). Eventualmente is occasionally or possibly." }
+    ]
+  },
+  "grammar": {
+    "points": ["b2.third-conditional"],
+    "explanation": "### The third conditional: imagining a different past\n\nWe use the third conditional to talk about **past situations that did not happen** and their imaginary results. The whole sentence is unreal: we are rewriting history.\n\n**Form:** *if* + **past perfect**, **would have** + past participle\n\n- *If I **had known** about the traffic, I **would have left** earlier.* (I didn't know, so I didn't leave earlier.)\n- *She **wouldn't have missed** the flight if she **had checked** the time.* (She didn't check, so she missed it.)\n\nEither clause can come first. Use a comma only when the *if*-clause comes first.\n\n**Less certain results:** replace *would* with **could have** (it would have been possible) or **might have** (perhaps):\n\n- *If we had trained harder, we **could have won**.*\n- *If he hadn't called, I **might not have gone** to the party.*\n\n**Questions:** *What **would** you **have done** if you **had lost** your passport?*\n\n### Two different 'd\n\nIn speech, both *had* and *would* contract to **'d**: *If **I'd** known, **I'd** have called.* The first *'d* is *had* and the second is *would*. A simple test: if *'d* is followed by a past participle (*known*), it is *had*; if it is followed by *have*, it is *would*.\n\n### The golden rule\n\n**Never use *would* in the *if*-clause.** One of the most common mistakes for Spanish speakers is translating *hubiera* as *would have*. In English, the *if*-clause always takes the past perfect: *If I **had** known*, never *If I would have known*.",
+    "examples": [
+      { "en": "If I had known about the traffic, I would have left earlier.", "es": "Si hubiera sabido lo del tráfico, habría salido antes." },
+      { "en": "She wouldn't have missed the flight if she had checked the time.", "es": "No habría perdido el vuelo si hubiera revisado la hora." },
+      { "en": "If we'd taken a taxi, we'd have arrived on time.", "es": "Si hubiéramos tomado un taxi, habríamos llegado a tiempo." },
+      { "en": "If he hadn't called me, I might not have gone to the party.", "es": "Si no me hubiera llamado, quizás no habría ido a la fiesta." },
+      { "en": "They could have won if they had played as a team.", "es": "Habrían podido ganar si hubieran jugado en equipo." },
+      { "en": "What would you have done if you had lost your passport?", "es": "¿Qué habrías hecho si hubieras perdido el pasaporte?" },
+      { "en": "If it hadn't rained, we would have had the party in the garden.", "es": "Si no hubiera llovido, habríamos hecho la fiesta en el jardín." }
+    ],
+    "pitfalls": [
+      { "wrong": "If I would have known, I would have told you.", "right": "If I had known, I would have told you.", "why": "The if-clause takes the past perfect. Would never goes in the if-clause." },
+      { "wrong": "If I had know, I would have called.", "right": "If I had known, I would have called.", "why": "After had you need the past participle (known, gone, seen), not the base form." },
+      { "wrong": "I would have went with you.", "right": "I would have gone with you.", "why": "After have, use the past participle: gone, not the past simple went." },
+      { "wrong": "I would of called you.", "right": "I would have called you.", "why": "Would've sounds like 'would of', but of is never correct here. Even native speakers make this spelling mistake." },
+      { "wrong": "If I knew it, I would have helped you.", "right": "If I had known it, I would have helped you.", "why": "For an imaginary past, the if-clause must also be in the past: past perfect, not past simple." }
+    ]
+  },
+  "listening": {
+    "title": "Second Chances: the podcast",
+    "episode": { "series": "Bright Start", "number": 85 },
+    "context": "Grace presents a podcast about small decisions that change our lives. Her guests are Marcus, Daniel's boss at the bakery in Chicago, and Chloe, a radio presenter from Melbourne. Listen once without reading, then again with the transcript.",
+    "speakers": {
+      "A": { "name": "Grace", "voice": "uk-f1" },
+      "B": { "name": "Marcus", "voice": "us-m2" },
+      "C": { "name": "Chloe", "voice": "au-f1" }
+    },
+    "lines": [
+      { "speaker": "A", "text": "Hello and welcome back to Second Chances, the podcast about the small decisions that change everything. I'm Grace, and today I've got two guests with brilliant stories. Marcus, let's start with you. Tell us about your sliding doors moment.", "say": "[warmly] Hello and welcome back to Second Chances, the podcast about the small decisions that change everything. I'm Grace, and today I've got two guests with brilliant stories. Marcus, let's start with you. Tell us about your sliding doors moment." },
+      { "speaker": "B", "text": "Sure. So, about ten years ago I was working at a bank in Chicago, and honestly, I was miserable. One Friday my train was canceled, so I walked to work instead, and I passed this tiny bakery with a sign in the window: 'Assistant wanted.' On the spur of the moment, I went in and asked for the job.", "say": "[thoughtfully] Sure. So, about ten years ago I was working at a bank in Chicago, and honestly, I was miserable. One Friday my train was canceled, so I walked to work instead, and I passed this tiny bakery with a sign in the window: 'Assistant wanted.' On the spur of the moment, I went in and asked for the job." },
+      { "speaker": "A", "text": "Just like that?", "say": "[surprised] Just like that?" },
+      { "speaker": "B", "text": "Just like that. And here's the thing: if my train hadn't been canceled, I would never have walked down that street. I wouldn't have seen the sign, and I'd probably still be at the bank. Today I own three bakeries, and my best baker is a guy from Medellín who still can't believe I used to wear a tie.", "say": "[laughs] Just like that. And here's the thing: if my train hadn't been canceled, I would never have walked down that street. I wouldn't have seen the sign, and I'd probably still be at the bank. Today I own three bakeries, and my best baker is a guy from Medellín who still can't believe I used to wear a tie." },
+      { "speaker": "A", "text": "That's incredible. Do you ever wonder what would have happened if you'd stayed?" },
+      { "speaker": "B", "text": "All the time! Look, I'd have earned more money in the short term, sure. But I would have hated every minute of it." },
+      { "speaker": "A", "text": "Chloe, what about you?" },
+      { "speaker": "C", "text": "Mine's a bit less of a fairy tale, actually. When I was twenty-two, I was offered a place on a research ship going to Antarctica. Six months at sea. And I turned it down because I didn't want to leave my boyfriend.", "say": "[laughs] Mine's a bit less of a fairy tale, actually. When I was twenty-two, I was offered a place on a research ship going to Antarctica. Six months at sea. And I turned it down because I didn't want to leave my boyfriend." },
+      { "speaker": "A", "text": "Oh no. I think I can see where this is going.", "say": "[sympathetic] Oh no. I think I can see where this is going." },
+      { "speaker": "C", "text": "Yeah. Three months later, he left me! So, in hindsight, if I'd known that, I would definitely have gone. I could have been studying penguins instead of crying on my sofa!", "say": "[sarcastic] Yeah. Three months later, he left me! So, in hindsight, if I'd known that, I would definitely have gone. [laughs] I could have been studying penguins instead of crying on my sofa!" },
+      { "speaker": "A", "text": "Do you regret it?" },
+      { "speaker": "C", "text": "I did for a long time. But here's the funny part. Because I stayed in Melbourne, I took a part-time job at a community radio station, and that's where I discovered I loved broadcasting. If I hadn't stayed, I might never have found my career. So maybe it was a blessing in disguise.", "say": "[thoughtfully] I did for a long time. But here's the funny part. Because I stayed in Melbourne, I took a part-time job at a community radio station, and that's where I discovered I loved broadcasting. If I hadn't stayed, I might never have found my career. So maybe it was a blessing in disguise." },
+      { "speaker": "B", "text": "That's the thing with regrets, isn't it? You only ever imagine the good version of the other path." },
+      { "speaker": "C", "text": "Exactly. If I'd gone to Antarctica, maybe I would have been seasick for six months!", "say": "[laughs] Exactly. If I'd gone to Antarctica, maybe I would have been seasick for six months!" },
+      { "speaker": "A", "text": "Fair point! Marcus, did anyone try to talk you out of leaving the bank?" },
+      { "speaker": "B", "text": "My dad did. He said, 'If you leave now, you'll regret it.' And to be fair, if the bakery had failed, he would have been right. I took a huge risk." },
+      { "speaker": "A", "text": "So, what's your advice for listeners who are facing a big decision right now?" },
+      { "speaker": "B", "text": "Don't spend forever making up your mind. Every choice has consequences, and you can't control all of them." },
+      { "speaker": "C", "text": "And when you look back, be kind to yourself. You made the best decision you could with what you knew at the time.", "say": "[warmly] And when you look back, be kind to yourself. You made the best decision you could with what you knew at the time." },
+      { "speaker": "A", "text": "Lovely. Marcus, Chloe, thank you both so much. And thank you for listening to Second Chances." }
+    ],
+    "questions": [
+      { "type": "choice", "instruction": "Listen and choose the correct answer.", "q": "Why did Marcus walk to work that Friday?", "options": ["He wanted some exercise.", "His train was canceled.", "He was late for an interview.", "His car had broken down."], "answer": 1, "explain": "Marcus says: 'One Friday my train was canceled, so I walked to work instead.'", "target": "b2.f.regret" },
+      { "type": "gap", "instruction": "Listen and complete the sentence with one word.", "q": "If Marcus's train hadn't been canceled, he would never have ___ down that street.", "answers": ["walked"], "explain": "Would have + past participle: walked.", "target": "b2.third-conditional" },
+      { "type": "choice", "instruction": "Listen and choose the correct answer.", "q": "Who is Marcus's best baker?", "options": ["His father.", "Chloe's ex-boyfriend.", "A man from Medellín.", "A woman from Melbourne."], "answer": 2, "explain": "Marcus says his best baker is 'a guy from Medellín'. Sounds like someone we know!", "target": "b2.f.regret" },
+      { "type": "choice", "instruction": "Listen and choose the correct answer.", "q": "Why did Chloe turn down the place on the research ship?", "options": ["She gets seasick.", "She didn't want to leave her boyfriend.", "She had just started a job at a radio station.", "She failed the interview."], "answer": 1, "explain": "Chloe says: 'I turned it down because I didn't want to leave my boyfriend.'", "target": "b2.f.regret" },
+      { "type": "gap", "instruction": "Listen and complete the sentence with one word.", "q": "In hindsight, if Chloe had known her boyfriend would leave her, she would definitely have ___.", "answers": ["gone"], "explain": "Chloe says: 'If I'd known that, I would definitely have gone.' Go – went – gone.", "target": "b2.third-conditional" },
+      { "type": "choice", "instruction": "Listen and choose the correct answer.", "q": "What does Marcus say about regrets?", "options": ["They always teach us something useful.", "We only imagine the good version of the path we didn't take.", "They disappear as we get older.", "They show that we made a bad decision."], "answer": 1, "explain": "Marcus says: 'You only ever imagine the good version of the other path.'", "target": "b2.f.regret" },
+      { "type": "gap", "instruction": "Listen and complete the sentence with one word.", "q": "Marcus's dad told him: 'If you leave now, you'll ___ it.'", "answers": ["regret"], "explain": "This is a first conditional: a real possibility in the future, not an imaginary past.", "target": "b2.f.regret" }
+    ],
+    "dictation": [
+      "If my train hadn't been canceled, I would never have walked down that street.",
+      "You made the best decision you could with what you knew at the time."
+    ]
+  },
+  "pronunciation": {
+    "point": "b2.p.weak-have-perfect",
+    "explanation": "In natural speech, *have* in *would have*, *could have*, *should have* and *might have* almost disappears. It becomes a weak /əv/, or even just /ə/, and it links to the modal before it:\n\n- *would have* → /ˈwʊd.əv/ ('woulda')\n- *wouldn't have* → /ˈwʊd.ənt.əv/\n- *could have* → /ˈkʊd.əv/\n- *might have* → /ˈmaɪt̬.əv/\n\nIn the *if*-clause, *I'd* (= I had) is very quiet: *If I'd known* can sound almost like *If I known*. Listen for the past participle: it tells you that the *'d* is *had*.\n\nTrain your ear first: in the listening drills, each sentence is spoken by different voices and accents. Once you can hear the weak forms, you'll start producing them.\n\n**Warning:** because *would've* sounds like 'would of', even native speakers sometimes write it that way. In writing, it is always *would have* or *would've*.",
+    "items": [
+      { "text": "I would have gone.", "ipa": "/aɪ ˈwʊd.əv ˈɡɑːn/", "tip": "Stress the participle, gone, not have." },
+      { "text": "I wouldn't have known.", "ipa": "/aɪ ˈwʊd.ənt.əv ˈnoʊn/", "tip": "Three weak syllables, then a strong one." },
+      { "text": "We could have won.", "ipa": "/wi ˈkʊd.əv ˈwʌn/", "tip": "The l in could is silent." },
+      { "text": "They might have missed it.", "ipa": "/ðeɪ ˈmaɪt̬.əv ˈmɪst ɪt/", "tip": "In American English the t in might sounds like a soft d." },
+      { "text": "You should have told me.", "ipa": "/juː ˈʃʊd.əv ˈtoʊld mi/", "tip": "Should have links into one word." },
+      { "text": "If I'd known, I'd have called.", "ipa": "/ɪf aɪd ˈnoʊn aɪd.əv ˈkɑːld/", "tip": "Two 'd: the first is had, the second is would." },
+      { "text": "She'd have loved it.", "ipa": "/ʃiːd.əv ˈlʌvd ɪt/", "tip": "She'd have sounds like one word." }
+    ],
+    "discrimination": [
+      { "type": "hear", "instruction": "Listen and choose what you hear.", "audioText": "I'd have called you.", "options": ["I'd have called you.", "I'd called you.", "I'll call you."], "answer": 0, "voices": ["us-f1", "uk-m1"], "explain": "'d have = would have, pronounced /aɪd.əv/. Without have, it would be a past perfect.", "target": "b2.p.weak-have-perfect" },
+      { "type": "hear", "instruction": "Listen and choose what you hear.", "audioText": "If I'd known, I'd have stayed.", "options": ["If I'd known, I'd have stayed.", "If I know, I'll stay.", "If I'd known, I'd stayed."], "answer": 0, "voices": ["au-f1", "us-m1"], "explain": "The participle known tells you the first 'd is had; the weak have tells you the second is would.", "target": "b2.p.weak-have-perfect" },
+      { "type": "hear", "instruction": "Listen and choose what you hear.", "audioText": "She could have won.", "options": ["She could have won.", "She couldn't have won.", "She could win."], "answer": 0, "voices": ["uk-f1", "us-m2"], "explain": "Could have sounds like /ˈkʊd.əv/. Couldn't have has an extra /nt/ in the middle.", "target": "b2.p.weak-have-perfect" },
+      { "type": "hear", "instruction": "Listen and choose what you hear.", "audioText": "They wouldn't have known.", "options": ["They would have known.", "They wouldn't have known."], "answer": 1, "voices": ["us-f2", "au-m1"], "explain": "Listen for the /nt/: /ˈwʊd.ənt.əv/. It's short, but it changes everything.", "target": "b2.p.weak-have-perfect" },
+      { "type": "hear", "instruction": "Listen and choose what you hear.", "audioText": "You should have told me.", "options": ["You should have told me.", "You should tell me.", "You shouldn't have told me."], "answer": 0, "voices": ["uk-m2", "us-f1"], "explain": "Should have links into /ˈʃʊd.əv/, and told is in the past participle.", "target": "b2.p.weak-have-perfect" }
+    ],
+    "shadowing": [
+      "If my train hadn't been canceled, I would never have walked down that street.",
+      "If I hadn't stayed, I might never have found my career. So maybe it was a blessing in disguise."
+    ]
+  },
+  "practice": [
+    { "type": "gap", "instruction": "Complete with the correct form of the verb in brackets.", "q": "If I ___ (know) about the party, I would have come.", "answers": ["had known"], "hint": "Past perfect: had + past participle.", "explain": "The if-clause takes the past perfect: had + past participle (known).", "target": "b2.third-conditional" },
+    { "type": "gap", "instruction": "Complete with the correct form of the verb in brackets.", "q": "She would have passed the exam if she ___ (study) harder.", "answers": ["had studied"], "hint": "Even when the if-clause comes second, it takes the past perfect.", "explain": "Past perfect in the if-clause, even when the if-clause comes second.", "target": "b2.third-conditional" },
+    { "type": "gap", "instruction": "Complete with the correct form of the verb in brackets.", "q": "If we had left earlier, we ___ (not / miss) the train.", "answers": ["wouldn't have missed", "would not have missed"], "hint": "Use would + not + have + past participle.", "explain": "The result clause takes would (not) have + past participle.", "target": "b2.third-conditional" },
+    { "type": "gap", "instruction": "Complete with the correct form of the verb in brackets.", "q": "If you ___ (not / call) me, I would have overslept.", "answers": ["hadn't called", "had not called"], "hint": "This is the if-clause, so it needs the negative past perfect.", "explain": "Negative past perfect: hadn't + past participle. In reality, you called, so I didn't oversleep.", "target": "b2.third-conditional" },
+    { "type": "gap", "instruction": "Complete with the correct form of the verb in brackets.", "q": "They ___ (win) the match if their best player hadn't been injured.", "answers": ["would have won"], "hint": "Win is irregular: win, won, won.", "explain": "Would have + past participle: win – won – won.", "target": "b2.third-conditional" },
+    { "type": "gap", "instruction": "Complete with the correct form of the verb in brackets.", "q": "If I had had more money, I ___ (be able to) buy the house.", "answers": ["could have bought", "would have been able to buy"], "hint": "Could have means 'would have been able to'. What's the past participle of buy?", "explain": "Could have means 'would have been able to'. Buy – bought – bought.", "target": "b2.third-conditional" },
+    { "type": "transform", "instruction": "Rewrite the sentence as a third conditional.", "q": "I didn't have your number, so I didn't call you.", "answers": ["If I had had your number, I would have called you.", "I would have called you if I had had your number."], "hint": "Reverse both facts. Yes, you'll need 'had had'.", "explain": "Reverse both facts: didn't have → had had; didn't call → would have called. Yes, 'had had' is correct.", "target": "b2.third-conditional" },
+    { "type": "transform", "instruction": "Rewrite the sentence as a third conditional.", "q": "He was tired because he didn't sleep well.", "answers": ["If he had slept well, he wouldn't have been tired.", "He wouldn't have been tired if he had slept well."], "hint": "Start with the cause: if he had…", "explain": "He didn't sleep well → if he had slept well; he was tired → he wouldn't have been tired.", "target": "b2.third-conditional" },
+    { "type": "transform", "instruction": "Rewrite the sentence as a third conditional.", "q": "The taxi didn't come, so we missed the flight.", "answers": ["If the taxi had come, we wouldn't have missed the flight.", "We wouldn't have missed the flight if the taxi had come."], "hint": "Reverse both facts: the taxi came, and we didn't miss it.", "explain": "The taxi didn't come → if the taxi had come; we missed it → we wouldn't have missed it.", "target": "b2.third-conditional" },
+    { "type": "correct", "instruction": "Correct the mistake in the sentence.", "q": "If I would have known, I would have helped you.", "answers": ["If I had known, I would have helped you."], "hint": "Look at the if-clause. Would never goes there.", "explain": "Never use would in the if-clause: If I had known…", "target": "b2.third-conditional" },
+    { "type": "correct", "instruction": "Correct the mistake in the sentence.", "q": "If she had went to the meeting, she would have met the director.", "answers": ["If she had gone to the meeting, she would have met the director."], "hint": "Go, went, gone: which form goes after had?", "explain": "After had you need the past participle: gone, not went.", "target": "b2.third-conditional" },
+    { "type": "correct", "instruction": "Correct the mistake in the sentence.", "q": "I would of called you if I had had time.", "answers": ["I would have called you if I had had time."], "hint": "What does would've really stand for?", "explain": "Would've sounds like 'would of', but the correct form is would have.", "target": "b2.p.weak-have-perfect" },
+    { "type": "choice", "instruction": "Choose the sentence with the same meaning.", "q": "If I hadn't seen the sign, I wouldn't have applied for the job.", "options": ["I saw the sign, and I applied.", "I didn't see the sign, so I didn't apply.", "I saw the sign, but I didn't apply.", "I'll apply if I see the sign."], "answer": 0, "explain": "The third conditional describes the opposite of what happened: in reality, I saw the sign and applied.", "target": "b2.third-conditional" },
+    { "type": "choice", "instruction": "Choose the sentence that expresses a regret about the past.", "q": "Which sentence is a regret about the past?", "options": ["If I see her, I'll tell her.", "If I had listened to my mother, I wouldn't have made that mistake.", "If I were you, I'd apologize.", "If it rains, the match is canceled."], "answer": 1, "explain": "Only the third conditional imagines a different past. The others talk about the present or the future.", "target": "b2.f.regret" },
+    { "type": "translate", "instruction": "Translate into English.", "q": "Si me hubieras llamado, habría ido contigo.", "answers": ["If you had called me, I would have gone with you.", "I would have gone with you if you had called me."], "hint": "Hubieras llamado is a past perfect; habría ido is would have + past participle.", "explain": "Hubieras llamado = had called; habría ido = would have gone.", "target": "b2.third-conditional" },
+    { "type": "translate", "instruction": "Translate into English.", "q": "Si no hubiéramos perdido el bus, habríamos llegado a tiempo.", "answers": ["If we hadn't missed the bus, we would have arrived on time.", "If we hadn't missed the bus, we would have been on time.", "If we hadn't missed the bus, we would have gotten there on time.", "If we hadn't missed the bus, we would have got there on time.", "We would have arrived on time if we hadn't missed the bus.", "We would have been on time if we hadn't missed the bus."], "hint": "Perder un bus is not 'lose' in English.", "explain": "Perder un bus is miss a bus in English, not lose a bus.", "target": "b2.third-conditional" },
+    { "type": "order", "instruction": "Put the words in order to make a sentence.", "words": ["come", "known", "I'd", "would", "have", "If", "I"], "answers": ["If I'd known, I would have come.", "I would have come if I'd known."], "hint": "Here I'd means I had.", "explain": "Here I'd means I had: if + past perfect, would have + past participle.", "target": "b2.third-conditional" },
+    { "type": "dictation", "instruction": "Listen and write the sentence.", "audioText": "If I'd known, I wouldn't have said anything.", "answers": ["If I'd known, I wouldn't have said anything."], "hint": "Listen for the weak forms in the second half: would, not, have.", "explain": "In fast speech, wouldn't have sounds like /ˈwʊd.ənt.əv/.", "target": "b2.p.weak-have-perfect" },
+    { "type": "choice", "instruction": "Choose the correct option.", "q": "If I ___ more time now, I would help you. (I don't have time.)", "options": ["had", "had had", "would have"], "answer": 0, "explain": "This is about the present, so it is a second conditional: if + past simple. Compare: If I had had more time yesterday, I would have helped you.", "target": "b1.second-conditional" },
+    { "type": "gap", "instruction": "Review: complete with used to, be used to or get used to.", "q": "When Daniel moved to Chicago, it took him months to ___ the cold winters.", "answers": ["get used to"], "hint": "This is about the process of becoming familiar with something.", "explain": "Get used to describes the process of becoming familiar: it took him months to get used to the cold.", "target": "b2.used-to-be-get" },
+    { "type": "gap", "instruction": "Review: complete with the correct form of the verb in brackets.", "q": "I'll never forget ___ (meet) Marcus for the first time.", "answers": ["meeting"], "hint": "Forget with this form refers to a memory of something in the past.", "explain": "Forget + -ing = a memory of the past; forget + to = not remembering to do something.", "target": "b2.verb-patterns-meaning" }
+  ],
+  "speaking": {
+    "task": "Talk about a decision that changed your life, or one that you regret. Explain what happened, what would have happened if you had chosen differently, and how you feel about it now. You'll tell the same story three times, with less time each round: the repetition is what makes you fluent.",
+    "prompts": [
+      "What was the decision, and when did you make it?",
+      "What would have happened if you had decided differently?",
+      "Would your life be different today? How?",
+      "Do you regret it, or was it a blessing in disguise?"
+    ],
+    "seconds": 90,
+    "rounds": [90, 70, 50],
+    "targetLanguage": [
+      "If I had…, I would / could / might have…",
+      "I would never have… if I hadn't…",
+      "In hindsight, …",
+      "It turned out to be a blessing in disguise.",
+      "Looking back, …"
+    ],
+    "model": "A big turning point for me was when I decided to study engineering instead of music. I was seventeen, and honestly, I made up my mind very quickly, almost on the spur of the moment. If I had chosen music, I would probably have moved to Bogotá, and I might have joined a band. I wouldn't have met my best friends at university, and I definitely wouldn't have gotten my first job, because one of my professors recommended me. In hindsight, I don't really regret it. Sometimes I think that if I had been braver, I could have become a professional musician. But I still play the guitar every weekend, so it wasn't a total loss. Looking back, it was the right decision for me at that time.",
+    "rubric": ["task", "range", "accuracy", "fluency", "pronunciation"]
+  },
+  "roleplay": {
+    "character": "Marcus",
+    "voice": "us-m2",
+    "scenario": "You work at Marcus's bakery in Chicago. After closing time, Marcus sits down with two coffees and asks you about the biggest decision you've ever made. Tell him your story, and ask him about his.",
+    "goals": [
+      "Explain a decision you made and what would have happened if you had chosen differently, using at least two third conditional sentences.",
+      "Say whether you regret it, using in hindsight or a blessing in disguise.",
+      "Ask Marcus at least one question about his own decision.",
+      "React naturally to his answers."
+    ],
+    "opening": {
+      "text": "So, tell me. What's the biggest decision you've ever made? Do you ever wonder what would have happened if you'd done things differently?",
+      "say": "[curious] So, tell me. What's the biggest decision you've ever made? [laughs] Do you ever wonder what would have happened if you'd done things differently?"
+    },
+    "maxTurns": 12
+  },
+  "writing": {
+    "genre": null,
+    "task": "A website called Sliding Doors collects short true stories from its readers. Write a paragraph about a moment when a small event changed your life. Use at least three third conditional sentences.",
+    "minWords": 80,
+    "maxWords": 120,
+    "checklist": [
+      "You use at least three third conditional sentences, correctly formed.",
+      "You never use would in the if-clause.",
+      "You use at least two expressions from the lesson (in hindsight, a turning point, a blessing in disguise…).",
+      "Your paragraph has a clear beginning, middle and end."
+    ],
+    "model": "Three years ago, my phone died on the way to a job interview, so I stopped at a café to charge it and missed the interview. While I was waiting, I started talking to the woman at the next table. She turned out to be the manager of a design studio. If my phone hadn't died, I would never have gone into that café, and I wouldn't have met her. She offered me an internship the following week. In hindsight, it was a real turning point. If I had gone to the interview, I might have gotten that job instead, but I would have been much less happy. Sometimes the worst mornings turn out to be blessings in disguise.",
+    "rubric": ["content", "communicative", "organisation", "language"]
+  },
+  "mission": {
+    "kind": "listen",
+    "minutes": 25,
+    "task": "Find a podcast where people tell true personal stories, such as The Moth or This American Life. Listen to one story for at least 25 minutes. Write down at least three sentences you hear with if + had + past participle, and one regret the speaker talks about. If the platform offers a transcript, read it only after your second listen."
+  },
+  "mastery": [
+    { "type": "gap", "instruction": "Complete with the correct form of the verb in brackets.", "q": "If you ___ (tell) me the truth, I wouldn't have been so angry.", "answers": ["had told"], "explain": "If + past perfect: had told.", "target": "b2.third-conditional" },
+    { "type": "gap", "instruction": "Complete with the correct form of the verb in brackets.", "q": "We ___ (not / get) lost if we had taken the map.", "answers": ["wouldn't have gotten", "would not have gotten", "wouldn't have got", "would not have got"], "explain": "Wouldn't have + past participle. Gotten is American English; got is British English.", "target": "b2.third-conditional" },
+    { "type": "transform", "instruction": "Rewrite the sentence as a third conditional.", "q": "She didn't apply because she didn't see the ad.", "answers": ["If she had seen the ad, she would have applied.", "She would have applied if she had seen the ad."], "explain": "She didn't see it → if she had seen it; she didn't apply → she would have applied.", "target": "b2.third-conditional" },
+    { "type": "correct", "instruction": "Correct the mistake in the sentence.", "q": "If they would have asked, I would have helped them.", "answers": ["If they had asked, I would have helped them."], "explain": "The if-clause takes the past perfect, never would.", "target": "b2.third-conditional" },
+    { "type": "correct", "instruction": "Correct the mistake in the sentence.", "q": "He would have came if you had invited him.", "answers": ["He would have come if you had invited him."], "explain": "Come – came – come: after have you need the past participle, come.", "target": "b2.third-conditional" },
+    { "type": "choice", "instruction": "Choose the correct meaning.", "q": "What does this sentence mean? 'If I'd taken the job in London, I'd have met Sam.'", "options": ["I took the job and met Sam.", "I didn't take the job, and I didn't meet Sam.", "I took the job, but I didn't meet Sam.", "I'll meet Sam if I take the job."], "answer": 1, "explain": "The third conditional describes the opposite of reality: I didn't take the job, so I didn't meet Sam.", "target": "b2.third-conditional" },
+    { "type": "choice", "instruction": "Choose the correct option.", "q": "If I ___ that you were ill, I would have visited you.", "options": ["knew", "had known", "would know", "have known"], "answer": 1, "explain": "An imaginary past needs the past perfect in the if-clause: had known.", "target": "b2.third-conditional" },
+    { "type": "choice", "instruction": "Choose the best answer.", "q": "Which sentence best expresses a regret?", "options": ["If I'd saved some money, I could have traveled with you.", "If I save some money, I'll travel with you.", "When I save money, I travel.", "If I saved money, I would travel with you."], "answer": 0, "explain": "Only the first one looks back at a past that didn't happen.", "target": "b2.f.regret" },
+    { "type": "dictation", "instruction": "Listen and write the sentence.", "audioText": "She might never have found her career if she hadn't stayed in Melbourne.", "answers": ["She might never have found her career if she hadn't stayed in Melbourne."], "explain": "Might never have + past participle: a possible, not certain, result.", "target": "b2.third-conditional" },
+    { "type": "dictation", "instruction": "Listen and write the sentence.", "audioText": "You should have told me earlier.", "answers": ["You should have told me earlier."], "explain": "Should have sounds like /ˈʃʊd.əv/: one word, with a weak have.", "target": "b2.p.weak-have-perfect" },
+    { "type": "translate", "instruction": "Translate into English.", "q": "Si hubiera sabido que estabas en la ciudad, te habría llamado.", "answers": ["If I had known you were in town, I would have called you.", "If I had known that you were in town, I would have called you.", "If I had known you were in the city, I would have called you.", "If I had known that you were in the city, I would have called you.", "I would have called you if I had known you were in town.", "I would have called you if I had known that you were in town.", "I would have called you if I had known you were in the city."], "explain": "Hubiera sabido = had known; habría llamado = would have called.", "target": "b2.third-conditional" },
+    { "type": "order", "instruction": "Put the words in order to make a sentence.", "words": ["wouldn't", "late", "been", "have", "we'd", "We", "earlier", "if", "left"], "answers": ["We wouldn't have been late if we'd left earlier.", "If we'd left earlier, we wouldn't have been late."], "explain": "Here we'd means we had: if + past perfect.", "target": "b2.third-conditional" },
+    { "type": "choice", "instruction": "Choose the correct pronunciation.", "q": "In fast, natural speech, 'would have' usually sounds like…", "options": ["/wʊd hæv/", "/ˈwʊd.əv/", "/wɪl hæv/"], "answer": 1, "explain": "Have becomes a weak /əv/ and links to would.", "target": "b2.p.weak-have-perfect" },
+    { "type": "gap", "instruction": "Review: complete with the correct form of the verb in brackets.", "q": "I ___ (go) to call you last night, but my phone died.", "answers": ["was going"], "explain": "Was going to describes a plan in the past that didn't happen.", "target": "b2.future-in-past" }
+  ]
+}

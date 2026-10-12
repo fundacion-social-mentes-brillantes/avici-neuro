@@ -3,6 +3,7 @@
     "api/chat.js": { "maxDuration": 60 },
     "api/book-pdf.js": { "maxDuration": 60 },
     "api/research.js": { "maxDuration": 60 },
-    "api/models.js": { "maxDuration": 20 }
+    "api/models.js": { "maxDuration": 20 },
+    "api/english.js": { "maxDuration": 40 }
   }
 }

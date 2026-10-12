@@ -6,10 +6,12 @@
   "description": "AVICI - plataforma de estudio con asistente IA (DeepSeek) especialista en los libros",
   "scripts": {
     "test": "node --test",
-    "check": "node --check app.js && node --check course-catalog.js && node --check learning-utils.js && node --check reader-utils.js && node --check sw.js && node --check api/chat.js && node --check api/research.js && node --check api/book-pdf.js && node --check api/book-data.js && node --check api/_lib.js"
+    "check": "node --check app.js && node --check course-catalog.js && node --check learning-utils.js && node --check reader-utils.js && node --check sw.js && node --check api/chat.js && node --check api/research.js && node --check api/book-pdf.js && node --check api/book-data.js && node --check api/_lib.js && node --check english-catalog.js && node --check english-utils.js && node --check english-srs.js && node --check english-progress.js && node --check english-speech.js && node --check english-app.js && node --check api/english.js && node --check api/_english.js && node --check api/_ai.js && node --check api/_azure.js && node --check tools/english-audio.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "jose": "^5.9.6",
-    "pdfjs-dist": "6.1.200"
+    "pdfjs-dist": "6.1.200",
+    "zod": "^4.6.6"
   }
 }
